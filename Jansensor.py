@@ -312,14 +312,14 @@ class trafficLight(QtWidgets.QWidget):
         # Subscribe to notifications to get the data (until callback=None)
         device1.accelerometer.set_settings(data_rate=50)
         self.connect_and_start()
-        self.p1.setLabel('left','Beschleunigung in g')
-        self.p1.setTitle('Beschleunigungsmessung')
+        self.plot.setLabel('left','Beschleunigung in g')
+        self.plot.setTitle('Beschleunigungsmessung')
         
     def startGyroStreaming(self):
         ''' stream data from gyroscope '''
         self.connect_and_start()
-        self.p1.setLabel('left','Winkelgeschwindigkeit  in °/s')
-        self.p1.setTitle('Winkelgeschwindigkeitsmessung')
+        self.plot.setLabel('left','Winkelgeschwindigkeit  in °/s')
+        self.plot.setTitle('Winkelgeschwindigkeitsmessung')
         
     def stopStreaming(self):
         ''' Stop data streaming after 'Stop' is clicked '''
@@ -438,9 +438,9 @@ class linePlotWindow(pg.GraphicsWindow):
         self.layout.addWidget(self.btnStop, 0,0)
         self.btnStop.clicked.connect(self.stopStreaming)
         
-        self.check = QtWidgets.QCheckBox('Daten speichern')
-        self.layout.addWidget(self.check, 2,0) 
-        self.check.stateChanged.connect(self.checked)
+        self.save = QtWidgets.QCheckBox('Daten speichern')
+        self.layout.addWidget(self.save, 2,0) 
+        self.save.stateChanged.connect(self.checked)
           
         self.cbox = QtWidgets.QComboBox()
         self.cbox.addItems(['bitte waehlen', 'Accelerometer', 'Gyroscope'])
@@ -450,15 +450,15 @@ class linePlotWindow(pg.GraphicsWindow):
         self.layout.addWidget(QtWidgets.QLabel('Messung:'), 1,2) 
         
         # Create a plot with a legend next to it
-        self.p1 = pg.plot()
-        self.p1.win.hide()
-        self.p1.showGrid(x=True, y=True)
-        self.p1.setLabel('bottom','Zeit')
+        self.plot = pg.plot()
+        self.plot.win.hide()
+        self.plot.showGrid(x=True, y=True)
+        self.plot.setLabel('bottom','Zeit')
         
         # Create a curve to plot
-        self.curveX = self.p1.plot(pen='r')                       
-        self.curveY = self.p1.plot(pen='g')
-        self.curveZ = self.p1.plot(pen='c')
+        self.curveX = self.plot.plot(pen='r')                       
+        self.curveY = self.plot.plot(pen='g')
+        self.curveZ = self.plot.plot(pen='c')
         
         self.windowWidth = 200
         self.Xmx = np.linspace(0, 0, self.windowWidth)    # Create array that will contain the relevant time series     
@@ -479,7 +479,7 @@ class linePlotWindow(pg.GraphicsWindow):
         self.legend.anchor((-24.5,0),(0,0))
         
         # Add the plot to the window
-        self.layout.addWidget(self.p1, 0,1)
+        self.layout.addWidget(self.plot, 0,1)
         
         # Define width of several columns
         self.layout.setColumnStretch(1, 3)
@@ -503,7 +503,7 @@ class linePlotWindow(pg.GraphicsWindow):
     
     def checked(self):
         ''' Open a dialog if "Save" is checked '''
-        if self.check.isChecked():
+        if self.save.isChecked():
             self.searchForDirectory()
      
     def searchForDirectory(self):
@@ -517,14 +517,14 @@ class linePlotWindow(pg.GraphicsWindow):
             
     def startAccStreaming(self):
         ''' stream data from accelerometer '''
-        self.p1.setLabel('left','Beschleunigung in g')
-        self.p1.setTitle('Beschleunigungsmessung')
+        self.plot.setLabel('left','Beschleunigung in g')
+        self.plot.setTitle('Beschleunigungsmessung')
         
     def startGyroStreaming(self):
         ''' stream data from gyroscope '''
         device1.gyroscope.notifications(self.streamingData)
-        self.p1.setLabel('left','Winkelgeschwindigkeit  in °/s')
-        self.p1.setTitle('Winkelgeschwindigkeitsmessung')
+        self.plot.setLabel('left','Winkelgeschwindigkeit  in °/s')
+        self.plot.setTitle('Winkelgeschwindigkeitsmessung')
         
     def stopStreaming(self):
         ''' Stop data streaming after 'Stop' is clicked '''
@@ -534,7 +534,7 @@ class linePlotWindow(pg.GraphicsWindow):
             device2.accelerometer.notifications(None)
         time.sleep(3.0)
         print('Unsubscribed from notifications...')
-        if self.check.isChecked():
+        if self.save.isChecked():
             self.df = self.df[pd.notnull(self.df['X-data'])]  # Remove empty rows
             os.chdir(self.dirPath)
             if self.sensor == 'Accelerometer':
@@ -630,9 +630,9 @@ class gridWindow(pg.GraphicsWindow):
         self.layout.addWidget(self.btnStop, 0,0)
         self.btnStop.clicked.connect(self.stopStreaming)
         
-        self.check = QtWidgets.QCheckBox('Daten speichern')
-        self.layout.addWidget(self.check, 2,0) 
-        self.check.stateChanged.connect(self.checked)
+        self.save = QtWidgets.QCheckBox('Daten speichern')
+        self.layout.addWidget(self.save, 2,0) 
+        self.save.stateChanged.connect(self.checked)
         
         self.Xmax = QtWidgets.QLineEdit('X-Limit')
         self.Ymax = QtWidgets.QLineEdit('Y-Limit')
@@ -647,14 +647,14 @@ class gridWindow(pg.GraphicsWindow):
         self.cbox.currentIndexChanged.connect(self.selectionChange)        
         
         # Create a plot with a legend next to it
-        self.p1 = pg.plot()
-        self.p1.win.hide()
-        self.p1.showGrid(x=True, y=True)
-        self.p1.setXRange(-2200,2200)
-        self.p1.setYRange(-2200,2200)
+        self.plot = pg.plot()
+        self.plot.win.hide()
+        self.plot.showGrid(x=True, y=True)
+        self.plot.setXRange(-2200,2200)
+        self.plot.setYRange(-2200,2200)
         
         # Create a curve to plot
-        self.graph = self.p1.plot()                       
+        self.graph = self.plot.plot()                       
         
         self.windowWidth = 1
         self.Xmx = np.linspace(0, 0, self.windowWidth)    # Create array that will contain the relevant time series     
@@ -662,7 +662,7 @@ class gridWindow(pg.GraphicsWindow):
         self.ptr = -self.windowWidth                      # Set first x position
         
         # Add the plot to the window
-        self.layout.addWidget(self.p1, 0,1)
+        self.layout.addWidget(self.plot, 0,1)
         
         # Define width of several columns
         self.layout.setColumnStretch(1, 3)
@@ -711,12 +711,12 @@ class gridWindow(pg.GraphicsWindow):
         # Subscribe to notifications to get the data (until callback=None)
         device1.accelerometer.set_settings(data_rate=12.5)
         device1.accelerometer.notifications(self.streamingData)
-        self.p1.setTitle('Beschleunigungsmessung')
+        self.plot.setTitle('Beschleunigungsmessung')
         
     def startGyroStreaming(self):
         ''' stream data from gyroscope '''
         device1.gyroscope.notifications(self.streamingData)
-        self.p1.setTitle('Winkelgeschwindigkeitsmessung')
+        self.plot.setTitle('Winkelgeschwindigkeitsmessung')
         
     def stopStreaming(self):
         ''' Stop data streaming after 'Stop' is clicked '''
@@ -734,7 +734,7 @@ class gridWindow(pg.GraphicsWindow):
             
             print('\nData saved to ', self.dirPath)
         
-#        self.p1.clear() # clear the plot for the next run
+#        self.plot.clear() # clear the plot for the next run
         
     def streamingData(self, data):
         ''' Plot sensor data in realtime
@@ -762,10 +762,10 @@ class gridWindow(pg.GraphicsWindow):
         
         self.graph.setData(self.Xmx, self.Xmy, symbol='o', symbolBrush='r', symbolSize=20)
         # add lines for positive and negative x/y-limits
-#        self.p1.addLine(y=self.xLim, pen='c')
-#        self.p1.addLine(y=-self.xLim, pen='c')
-#        self.p1.addLine(x=self.yLim, pen='c')
-#        self.p1.addLine(x=-self.yLim, pen='c')
+#        self.plot.addLine(y=self.xLim, pen='c')
+#        self.plot.addLine(y=-self.xLim, pen='c')
+#        self.plot.addLine(x=self.yLim, pen='c')
+#        self.plot.addLine(x=-self.yLim, pen='c')
         
         QtWidgets.QApplication.processEvents()    # process the plot
         

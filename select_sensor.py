@@ -23,7 +23,8 @@ def find_sensor(debug_flag=False):
     server.settimeout(0.2)
 
     # This bit may not be necessary
-    server_address = ('', 8016)     # Note that "localhost" does NOT work!
+    #server_address = ('', 8015)     # Note that "localhost" does NOT work!
+    server_address = ('192.168.1.9', 8015)     # Note that "localhost" does NOT work!
     server.bind(server_address)
 
     # Message to send:
@@ -37,7 +38,7 @@ def find_sensor(debug_flag=False):
         # server.sendto(message, ('<broadcast>', 37020))
         server.sendto(message, ('255.255.255.255', 9000))   # to all
         # server.sendto(message, ('192.168.1.20', 37020))   # for Computer to Computer
-        # server.sendto(message, ('192.168.1.16', 9000))      # for NGIMU
+        #server.sendto(message, ('192.168.1.15', 9000))      # for NGIMU
 
         if debug_flag:
             print("message sent!")
