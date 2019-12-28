@@ -16,13 +16,15 @@ import datetime
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtGui, QtCore, QtMultimedia
 
-import select_sensor
-import osc_decoder
+import ngimu
+
 
 class Sensor():
     """Default settings for the recording"""
     
     def __init__(self):
+        """Initialize the sensor"""
+        
         self.labels = ['Acceleration [g]',
                        'Angular Velocity [deg/s]']
         self.range = [ [-1.2, 1.2],
@@ -30,32 +32,24 @@ class Sensor():
         self.channel = 'acc'   # can be 'acc' or 'gyr'
         self.rate = 50      # Hz
         self.IP = '0.0.0.0'
-        self.port = 0
+        self.port = 8015
         
 
 class MainWindow(QtWidgets.QMainWindow):
+    """ The central display Widget """    
 
+    
     def __init__(self):
         ''' Define style of the main window '''
+                
         super(MainWindow, self).__init__()
         self.setGeometry(50, 50, 500, 300)
         self.showMaximized()
         self.setWindowTitle("Jansenberger")
-        self.setWindowIcon(QtGui.QIcon('Resources/Jansenberger.png'))
+        self.setWindowIcon(QtGui.QIcon('C:/Users/maxpr_000/Desktop/Berufspraktikum/Coding/Jansenberger.jpg'))
         
-        # Set starting flag
-        self.lightFlag = False
-        self.lineFlag = True
-        self.gridFlag = False
-        self.storeFlag = False
-        if self.lightFlag:
-            self.flagChanged(self.lightFlag)
-        elif self.lineFlag:
-            self.flagChanged(self.lineFlag)
-        elif self.gridFlag:
-            self.flagChanged(self.gridFlag)
-        else:
-            self.flagChanged(self.storeFlag)
+        # Show the line-window
+        self.set_window()
             
         # Filling up a menu bar
         bar = self.menuBar()
@@ -78,62 +72,34 @@ class MainWindow(QtWidgets.QMainWindow):
         store_action.setShortcut("Ctrl+S")
 
         # Use `connect` method to bind signals to desired behavior
-        trafficLight_action.triggered.connect(self.setLightFlag)
-        linePlot_action.triggered.connect(self.setLineFlag)
-        grid_action.triggered.connect(self.setGridFlag)
-        store_action.triggered.connect(self.setStoreFlag)
-    
-    def flagChanged(self, flag):
-        ''' Setting the central widget whenever the flag changes '''
-        if flag == self.lightFlag:
-            self.lightWin = trafficLight()
-            self.setCentralWidget(self.lightWin)
-        elif flag == self.lineFlag:
-            self.lineWin = linePlotWindow()
-            self.setCentralWidget(self.lineWin)
-        elif flag == self.gridFlag:
-            self.gridWin = gridWindow()
-            self.setCentralWidget(self.gridWin)
-        else:
-            self.storeWin = storeWindow()
-            self.setCentralWidget(self.storeWin)
-    
-    def setLightFlag(self):
-        ''' Set flag for trafficLight '''
-        sensor_1.channel = 'acc'    # is this necessary?
-        self.lightFlag = True
-        self.lineFlag = False
-        self.gridFlag = False
-        self.storeFlag = False
-        self.flagChanged(self.lightFlag)
-    
-    def setLineFlag(self):
-        ''' Set flag for linePlotWindow '''
-        sensor_1.channel = 'acc'    # is this necessary?
-        self.lightFlag = False
-        self.lineFlag = True
-        self.gridFlag = False
-        self.storeFlag = False
-        self.flagChanged(self.lineFlag)
-    
-    def setGridFlag(self):
-        ''' Set flag for gridWindow '''
-        sensor_1.channel = 'acc'    # is this necessary?
-        self.lightFlag = False
-        self.lineFlag = False
-        self.gridFlag = True
-        self.storeFlag = False
-        self.flagChanged(self.gridFlag)
-    
-    def setStoreFlag(self):
-        ''' Set flag for storeWindow '''
-        sensor_1.channel = 'acc'    # is this necessary?
-        self.lightFlag = False
-        self.lineFlag = False
-        self.gridFlag = False
-        self.storeFlag = True
-        self.flagChanged(self.storeFlag)
+        linePlot_action.triggered.connect(lambda: self.set_window(win_type='line'))
+        trafficLight_action.triggered.connect(lambda: self.set_window(win_type='light'))
+        grid_action.triggered.connect(lambda: self.set_window(win_type='grid'))
+        store_action.triggered.connect(lambda: self.set_window(win_type='store'))
         
+        
+    def set_window(self, win_type = 'line'):
+        """
+        Shows only the selected window in the central widget
+
+        Parameter
+        ---------
+        win_type : string
+                Has to be 'line', 'light', 'grid', or 'store'
+        """
+        
+        # types = ['line', 'light', 'grid', 'store']
+
+        if win_type == 'light':
+            self.setCentralWidget(trafficLight())
+        elif win_type == 'line':
+            self.setCentralWidget(linePlotWindow())
+        elif win_type == 'grid':
+            self.setCentralWidget(gridWindow())
+        else:
+            self.setCentralWidget(storeWindow())
+
+    
     def closeEvent(self, event):
         ''' React to window closing '''
         box = QtGui.QMessageBox()
@@ -161,8 +127,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 class trafficLight(QtWidgets.QWidget):
-    """ The central display Widget """    
+    """ Show signals as a simple 'traffic-light' """    
+
+
     def __init__(self):
+        """Initialize the traffic-light window"""
+        
         super(trafficLight, self).__init__()
         self.initUI()
         
@@ -178,9 +148,11 @@ class trafficLight(QtWidgets.QWidget):
         # Create name for the outfile by defining the current date and time
         self.outfileAcc = datetime.datetime.now().strftime("%b%d%Y_%H-%M-%S_Acc")
         self.outfileGyr = datetime.datetime.now().strftime("%b%d%Y_%H-%M-%S_Gyr")
-        
+
+
     def initUI(self):      
         """ Define the display size, title, and colors, and the initial color """
+        
         self.setGeometry(300, 300, 350, 100)
         
         # Set layout to a QGridLayout, so you only need to define row and column
@@ -201,7 +173,7 @@ class trafficLight(QtWidgets.QWidget):
         self.cbox.addItems(['X', 'Y', 'Z'])
         self.layout.addWidget(self.cbox, 1,0)
         
-        self.check_save = QtWidgets.QCheckBox('Save data')
+        self.check_save = QtWidgets.QCheckBox('Daten speichern')
         self.layout.addWidget(self.check_save, 5,0) 
         self.check_save.stateChanged.connect(self.checked)
         
@@ -226,18 +198,26 @@ class trafficLight(QtWidgets.QWidget):
         self.colors = [QtGui.QColor(198, 44, 58), QtGui.QColor(254, 197, 45), QtGui.QColor(86, 174, 53)]
         self.colorNr = 1  # set the starting color to the second (0,1,2) element of self.colors   
         self.show()
-    
+
+
     def upperThresChanged(self, text):
-        self.upperThreshold = float(text)
+        """Define the upper threshold"""
         
+        self.upperThreshold = float(text)
+
+
     def lowerThresChanged(self, text):
+        """Define the lower threshold"""
+        
         self.lowerThreshold = float(text)
-            
+
+
     def paintEvent(self, e):
         """
         'paintEvent' is a method of each QWidget, and is used to
         re-paint the Widget
         """
+        
         qp = QtGui.QPainter()
         qp.begin(self)
         qp.setPen(QtGui.QColor(QtCore.Qt.black))
@@ -246,16 +226,18 @@ class trafficLight(QtWidgets.QWidget):
         qp.drawRect(845, 585, 240, 210)
         self.drawRectangles(qp)
         qp.end()
-        
+
+
     def drawRectangles(self, qp):
         """ Here three rectangles are drawn """
+        
         lightColor = self.colors[self.colorNr]
         qp.setBrush(lightColor)
         
         if self.swapFlag == False:
             if self.colorNr == 0:
                 qp.drawRect(845, 115, 240, 210)
-                QtMultimedia.QSound.play("Resources/ding.wav")
+                QtMultimedia.QSound.play("C:/Users/maxpr_000/Desktop/Berufspraktikum/Coding/button-37.wav")
             elif self.colorNr == 1:   
                 qp.drawRect(845, 350, 240, 210)
             else:
@@ -267,10 +249,12 @@ class trafficLight(QtWidgets.QWidget):
                 qp.drawRect(845, 350, 240, 210)
             else:
                 qp.drawRect(845, 115, 240, 210)
-                QtMultimedia.QSound.play("Resources/notify.wav")
-    
+                QtMultimedia.QSound.play("C:/Users/maxpr_000/Desktop/Berufspraktikum/Coding/button-37.wav")
+
+
     def selectionChange(self, i):
         ''' choose what data to measure '''
+        
         print(self.cbox.itemText(i))
         self.sensor = self.cbox.itemText(i)
         if self.sensor == 'Accelerometer':
@@ -285,44 +269,54 @@ class trafficLight(QtWidgets.QWidget):
             self.btn.clicked.connect(self.btn.deleteLater)
         else:
             print('No sensor selected...')
-            
+
+
     def checked(self):
         ''' Open a dialog if "Save" is checked '''
+        
         if self.check_save.isChecked():
             self.searchForDirectory()
-     
+
+
     def searchForDirectory(self):
         ''' Create a file dialog for saving the data '''
+        
         self.dirPath = QtGui.QFileDialog.getExistingDirectory(
             self,
             "Open a folder",
             "/home/my_user_name/",
             QtGui.QFileDialog.ShowDirsOnly
             )
-    
+
     def swapLights(self):
         ''' If checked, swap the lightcolors red and green '''
+        
         if self.check_swap.isChecked():
             self.swapFlag = True
         else:
             self.swapFlag = False
-    
+
     def startAccStreaming(self):
         ''' stream data from accelerometer '''
+        
         # Subscribe to notifications to get the data (until callback=None)
         device1.accelerometer.set_settings(data_rate=50)
         self.connect_and_start()
-        self.plot.setLabel('left','Beschleunigung in g')
-        self.plot.setTitle('Beschleunigungsmessung')
-        
+        self.p1.setLabel('left','Beschleunigung in g')
+        self.p1.setTitle('Beschleunigungsmessung')
+
+
     def startGyroStreaming(self):
         ''' stream data from gyroscope '''
-        self.connect_and_start()
-        self.plot.setLabel('left','Winkelgeschwindigkeit  in °/s')
-        self.plot.setTitle('Winkelgeschwindigkeitsmessung')
         
+        self.connect_and_start()
+        self.p1.setLabel('left','Winkelgeschwindigkeit  in °/s')
+        self.p1.setTitle('Winkelgeschwindigkeitsmessung')
+
+
     def stopStreaming(self):
         ''' Stop data streaming after 'Stop' is clicked '''
+        
         self.timerStop()
         device1.accelerometer.notifications(None)
         device1.gyroscope.notifications(None)
@@ -338,23 +332,26 @@ class trafficLight(QtWidgets.QWidget):
             
             print('\nData saved to ', self.dirPath)
 
+
     def connect_and_start(self):
         """ Connects the signals, and starts the timer
         Note: Qt signals can only be connected to instances, and not to
         pure classes!
         """
+        
         self.timer = QtCore.QTimer()
         self.time = QtCore.QTime(0, 0, 0)
         
         self.timer.timeout.connect(self.timerEvent)
         self.timer.start(200)    
-        
+
+
     def timerEvent(self):
         """ Every few msec, check the signal, and set the color of the
         rectangle accordingly. 
         the 'update' calls the 'paintEvent'
-        [xxx]
         """
+        
         def stream_data(data):
             # take the signal from a sensor
             line = str(data)
@@ -393,17 +390,35 @@ class trafficLight(QtWidgets.QWidget):
             device1.accelerometer.notifications(stream_data)
         else:
             device1.gyroscope.notifications(stream_data)
-    
+
+
     def timerStop(self):
         ''' Stop the timer when trafficLight should be stopped '''
-        self.timer.stop()
         
+        self.timer.stop()
+
 
 class linePlotWindow(pg.GraphicsWindow):
-    
-    def __init__(self):
+    """ Window showing signals as a function of time """
+
+
+    def __init__(self, sensor):
+        """Initializ the line-window"""
+        
         super(linePlotWindow, self).__init__()
         self.initUI()
+        
+        # Initialize the plot
+        num_data = 800
+        sensor.data = np.zeros( (3, num_data) )
+        sensor.channel = 'acc'
+        
+        curves = [ ph.plot(pen='y', label='x'),
+                  ph.plot(pen='r', label='y'),
+                  ph.plot(pen='g', label='z') ]
+        
+        sensor.curves = curves
+        
         
         # Define a buffer to save the data
         row = 135000  # sample_rate (50 Hz) x time (45 min)
@@ -423,9 +438,11 @@ class linePlotWindow(pg.GraphicsWindow):
         
         self.outfileAcc2 = datetime.datetime.now().strftime("%b%d%Y_%H-%M-%S_Acc2")
         self.outfileGyr2 = datetime.datetime.now().strftime("%b%d%Y_%H-%M-%S_Gyr2")
-        
+
+
     def initUI(self):
         ''' Define display style '''
+        
         self.showMaximized()
         self.setBackground(None)
         
@@ -435,12 +452,12 @@ class linePlotWindow(pg.GraphicsWindow):
 
         # Add Widgets to the layout    
         self.btnStop = QtGui.QPushButton('Stopp')
-        self.layout.addWidget(self.btnStop, 0,0)
         self.btnStop.clicked.connect(self.stopStreaming)
+        self.layout.addWidget(self.btnStop, 0,0)
         
-        self.save = QtWidgets.QCheckBox('Daten speichern')
-        self.layout.addWidget(self.save, 2,0) 
-        self.save.stateChanged.connect(self.checked)
+        self.check = QtWidgets.QCheckBox('Daten speichern')
+        self.check.stateChanged.connect(self.checked)
+        self.layout.addWidget(self.check, 2,0) 
           
         self.cbox = QtWidgets.QComboBox()
         self.cbox.addItems(['bitte waehlen', 'Accelerometer', 'Gyroscope'])
@@ -450,21 +467,15 @@ class linePlotWindow(pg.GraphicsWindow):
         self.layout.addWidget(QtWidgets.QLabel('Messung:'), 1,2) 
         
         # Create a plot with a legend next to it
-        self.plot = pg.plot()
-        self.plot.win.hide()
-        self.plot.showGrid(x=True, y=True)
-        self.plot.setLabel('bottom','Zeit')
+        self.p1 = pg.plot()
+        self.p1.win.hide()
+        self.p1.showGrid(x=True, y=True)
+        self.p1.setLabel('bottom','Zeit')
         
         # Create a curve to plot
-        self.curveX = self.plot.plot(pen='r')                       
-        self.curveY = self.plot.plot(pen='g')
-        self.curveZ = self.plot.plot(pen='c')
-        
-        self.windowWidth = 200
-        self.Xmx = np.linspace(0, 0, self.windowWidth)    # Create array that will contain the relevant time series     
-        self.Xmy = np.linspace(0, 0, self.windowWidth)
-        self.Xmz = np.linspace(0, 0, self.windowWidth)
-        self.ptr = -self.windowWidth                      # Set first x position
+        self.curveX = self.p1.plot(pen='r')                       
+        self.curveY = self.p1.plot(pen='g')
+        self.curveZ = self.p1.plot(pen='c')
         
         self.vb = self.addViewBox()  # Empty box next to the plot
         self.vb.setMaximumWidth(3000)
@@ -479,13 +490,15 @@ class linePlotWindow(pg.GraphicsWindow):
         self.legend.anchor((-24.5,0),(0,0))
         
         # Add the plot to the window
-        self.layout.addWidget(self.plot, 0,1)
+        self.layout.addWidget(self.p1, 0,1)
         
         # Define width of several columns
         self.layout.setColumnStretch(1, 3)
-    
+
+
     def selectionChange(self, i):
         ''' choose what data to measure '''
+        
         print(self.cbox.itemText(i))
         self.sensor = self.cbox.itemText(i)
         if self.sensor == 'Accelerometer':
@@ -503,7 +516,7 @@ class linePlotWindow(pg.GraphicsWindow):
     
     def checked(self):
         ''' Open a dialog if "Save" is checked '''
-        if self.save.isChecked():
+        if self.check.isChecked():
             self.searchForDirectory()
      
     def searchForDirectory(self):
@@ -514,27 +527,41 @@ class linePlotWindow(pg.GraphicsWindow):
             "/home/my_user_name/",
             QtGui.QFileDialog.ShowDirsOnly
             )
-            
+
+
     def startAccStreaming(self):
         ''' stream data from accelerometer '''
-        self.plot.setLabel('left','Beschleunigung in g')
-        self.plot.setTitle('Beschleunigungsmessung')
         
+        # Subscribe to notifications to get the data (until callback=None)
+        device1.accelerometer.set_settings(data_rate=50)
+        device1.accelerometer.notifications(self.streamingData1)
+        
+        if deviceFlag == True:
+            device2.accelerometer.set_settings(data_rate=50)
+            device2.accelerometer.notifications(self.streamingData2)
+            
+        self.p1.setLabel('left','Beschleunigung in g')
+        self.p1.setTitle('Beschleunigungsmessung')
+
+
     def startGyroStreaming(self):
         ''' stream data from gyroscope '''
-        device1.gyroscope.notifications(self.streamingData)
-        self.plot.setLabel('left','Winkelgeschwindigkeit  in °/s')
-        self.plot.setTitle('Winkelgeschwindigkeitsmessung')
         
+        device1.gyroscope.notifications(self.streamingData)
+        self.p1.setLabel('left','Winkelgeschwindigkeit  in °/s')
+        self.p1.setTitle('Winkelgeschwindigkeitsmessung')
+
+
     def stopStreaming(self):
         ''' Stop data streaming after 'Stop' is clicked '''
+        
         device1.accelerometer.notifications(None)
         device1.gyroscope.notifications(None)
         if deviceFlag == True:
             device2.accelerometer.notifications(None)
         time.sleep(3.0)
         print('Unsubscribed from notifications...')
-        if self.save.isChecked():
+        if self.check.isChecked():
             self.df = self.df[pd.notnull(self.df['X-data'])]  # Remove empty rows
             os.chdir(self.dirPath)
             if self.sensor == 'Accelerometer':
@@ -546,9 +573,11 @@ class linePlotWindow(pg.GraphicsWindow):
                 self.df.to_csv(self.outfileGyr, sep='\t')
             
             print('\nData saved to ', self.dirPath)
-            
+
+
     def streamingData1(self, data):
         ''' Plot sensor data in realtime
+        
         Each time this function is called, the data display is updated
         '''        
         self.Xmx[:-1] = self.Xmx[1:]          # shift data in the temporal mean 1 sample left
@@ -582,11 +611,13 @@ class linePlotWindow(pg.GraphicsWindow):
         self.curveZ.setPos(self.ptr, 0)
         
         QtWidgets.QApplication.processEvents()    # process the plot
-        
+
+
     def streamingData2(self, data):
         ''' Plot sensor data in realtime
         Each time this function is called, the data display is updated
         '''        
+        
         line = str(data)
         values = re.split('[:,}]', line)      # split the string to get the values
         
@@ -602,8 +633,11 @@ class linePlotWindow(pg.GraphicsWindow):
 
 
 class gridWindow(pg.GraphicsWindow):
+    """ Show two components versus each other """
     
     def __init__(self):
+        """Initialize the grid window"""
+        
         super(gridWindow, self).__init__()
         self.initUI()
         
@@ -616,9 +650,11 @@ class gridWindow(pg.GraphicsWindow):
         # Create name for the outfile by defining the current date and time
         self.outfileAcc = datetime.datetime.now().strftime("%b%d%Y_%H-%M-%S_Acc")
         self.outfileGyr = datetime.datetime.now().strftime("%b%d%Y_%H-%M-%S_Gyr")
-    
+
+
     def initUI(self):
-        ''' Define display style '''
+        """ Define display style """
+        
         self.showMaximized()
         self.setBackground(None)
         
@@ -626,7 +662,7 @@ class gridWindow(pg.GraphicsWindow):
         self.layout = QtWidgets.QGridLayout()
         self.setLayout(self.layout)
         
-        self.btnStop = QtGui.QPushButton('Stopp')
+        self.btnStop = QtGui.QPushButton('Stop')
         self.layout.addWidget(self.btnStop, 0,0)
         self.btnStop.clicked.connect(self.stopStreaming)
         
@@ -666,9 +702,11 @@ class gridWindow(pg.GraphicsWindow):
         
         # Define width of several columns
         self.layout.setColumnStretch(1, 3)
-    
+
+
     def selectionChange(self, i):
-        ''' choose what data to measure '''
+        """ choose what data to measure """
+        
         print(self.cbox.itemText(i))
         self.sensor = self.cbox.itemText(i)
         if self.sensor == 'Accelerometer':
@@ -683,43 +721,56 @@ class gridWindow(pg.GraphicsWindow):
             self.btn.clicked.connect(self.btn.deleteLater)
         else:
             print('No sensor selected...')
-            
+
     def checked(self):
-        ''' Open a dialog if "Save" is checked '''
+        """ Open a dialog if "Save" is checked """
+        
         if self.check.isChecked():
             self.searchForDirectory()
-     
+
+
     def searchForDirectory(self):
-        ''' Create a file dialog for saving the data '''
+        """ Create a file dialog for saving the data """
+        
         self.dirPath = QtGui.QFileDialog.getExistingDirectory(
             self,
             "Open a folder",
             "/home/my_user_name/",
             QtGui.QFileDialog.ShowDirsOnly
             )
-    
+
+
     def xLimit(self, text):
-        ''' Set the x-limit '''
-        self.xLim = float(text)
+        """ Set the x-limit """
         
+        self.xLim = float(text)
+
+
     def yLimit(self, text):
-        ''' Set the y-limit '''
+        """ Set the y-limit """
+        
         self.yLim = float(text)
-    
+
+
     def startAccStreaming(self):
-        ''' stream data from accelerometer '''
+        """ stream data from accelerometer """
+        
         # Subscribe to notifications to get the data (until callback=None)
         device1.accelerometer.set_settings(data_rate=12.5)
         device1.accelerometer.notifications(self.streamingData)
         self.plot.setTitle('Beschleunigungsmessung')
-        
+
+
     def startGyroStreaming(self):
-        ''' stream data from gyroscope '''
+        """ stream data from gyroscope """
+        
         device1.gyroscope.notifications(self.streamingData)
         self.plot.setTitle('Winkelgeschwindigkeitsmessung')
-        
+
+
     def stopStreaming(self):
-        ''' Stop data streaming after 'Stop' is clicked '''
+        """ Stop data streaming after 'Stop' is clicked """
+        
         device1.accelerometer.notifications(None)
         device1.gyroscope.notifications(None)
         time.sleep(3.0)
@@ -735,11 +786,13 @@ class gridWindow(pg.GraphicsWindow):
             print('\nData saved to ', self.dirPath)
         
 #        self.plot.clear() # clear the plot for the next run
-        
+
+
     def streamingData(self, data):
-        ''' Plot sensor data in realtime
+        """ Plot sensor data in realtime
+        
         Each time this function is called, the data display is updated
-        '''        
+        """        
         self.Xmx[:-1] = self.Xmx[1:]                    # shift data in the temporal mean 1 sample left
         self.Xmy[:-1] = self.Xmy[1:]
                 
@@ -756,7 +809,7 @@ class gridWindow(pg.GraphicsWindow):
         self.df.columns = ['X-data', 'Y-data', 'Z-data']
         self.ii += 1
         
-        '''Convert data into mG'''
+        """Convert data into mG"""
         self.Xmx[-1] = x_data * 1000              # vector containing the instantaneous values      
         self.Xmy[-1] = y_data * 1000
         
@@ -768,12 +821,14 @@ class gridWindow(pg.GraphicsWindow):
 #        self.plot.addLine(x=-self.yLim, pen='c')
         
         QtWidgets.QApplication.processEvents()    # process the plot
-        
+
 
 class storeWindow(QtWidgets.QWidget):
-    ''' Class to only save the data (no visualization) '''
+    """ Class to only save the data (no visualization) """
     
     def __init__(self):
+        """Initialize the storage window"""
+        
         super(storeWindow, self).__init__()
         self.initUI()
         
@@ -795,13 +850,16 @@ class storeWindow(QtWidgets.QWidget):
         
         self.outfileAcc2 = datetime.datetime.now().strftime("%b%d%Y_%H-%M-%S_Acc2")
         self.outfileGyr2 = datetime.datetime.now().strftime("%b%d%Y_%H-%M-%S_Gyr2")
-        
+
+
     def initUI(self):  
+        """define the corresponding UI"""
+        
          # Set layout to a QGridLayout, so you only need to define row and column
         self.layout = QtWidgets.QGridLayout()
         self.setLayout(self.layout)
         
-        self.btnStop = QtGui.QPushButton('Stopp')
+        self.btnStop = QtGui.QPushButton('Stop')
         self.layout.addWidget(self.btnStop, 0,0)
         self.btnStop.clicked.connect(self.stopStreaming)
         
@@ -809,9 +867,11 @@ class storeWindow(QtWidgets.QWidget):
         self.cbox.addItems(['bitte waehlen', 'Accelerometer', 'Gyroscope'])
         self.layout.addWidget(self.cbox, 0,1)
         self.cbox.currentIndexChanged.connect(self.selectionChange)
-        
+
+
     def selectionChange(self, i):
-        ''' choose what data to measure '''
+        """ choose what data to measure """
+        
         print(self.cbox.itemText(i))
         self.sensor = self.cbox.itemText(i)
         if self.sensor == 'Accelerometer':
@@ -826,9 +886,11 @@ class storeWindow(QtWidgets.QWidget):
             self.btn.clicked.connect(self.btn.deleteLater)
         else:
             print('No sensor selected...')
-            
+
+
     def searchForDirectory(self):
-        ''' Create a file dialog for saving the data '''
+        """ Create a file dialog for saving the data """
+            
         self.dirPath = QtGui.QFileDialog.getExistingDirectory(
             self,
             "Open a folder",
@@ -839,9 +901,11 @@ class storeWindow(QtWidgets.QWidget):
             self.startAccStreaming()
         else:
             self.startGyroStreaming()
-            
+
+
     def startAccStreaming(self):
-        ''' stream data from accelerometer '''
+        """ stream data from accelerometer """
+        
         # Subscribe to notifications to get the data (until callback=None)
         device1.accelerometer.set_settings(data_rate=50)
         # high_frequency_stream has to be true for streaming multiple devices
@@ -852,18 +916,22 @@ class storeWindow(QtWidgets.QWidget):
             device2.accelerometer.set_settings(data_rate=50)
             device2.accelerometer.high_frequency_stream = True
             device2.accelerometer.notifications(self.streamingData2)
-        
+
+
     def startGyroStreaming(self):
-        ''' stream data from gyroscope '''
+        """ stream data from gyroscope """
+        
         device1.gyroscope.notifications(self.streamingData1)
         device1.gyroscope.high_frequency_stream = True
         
         if deviceFlag == True:
             device2.gyroscope.notifications(self.streamingData2)
             device2.gyroscope.high_frequency_stream = True
-        
+
+
     def stopStreaming(self):
-        ''' Stop data streaming after 'Stop' is clicked '''
+        """ Stop data streaming after 'Stop' is clicked """
+        
         device1.accelerometer.notifications(None)
         device1.gyroscope.notifications(None)
         if deviceFlag == True:
@@ -885,9 +953,11 @@ class storeWindow(QtWidgets.QWidget):
                 self.df2.to_csv(self.outfileGyr2, sep='\t')
             
         print('\nData saved to ', self.dirPath)
-            
+
+
     def streamingData1(self, data):
-        ''' Get sensor data and save it to a buffer '''
+        """ Get sensor data and save it to a buffer """
+        
         line = str(data)
         values = re.split('[:,}]', line)  # split the string to get the values
         
@@ -900,11 +970,13 @@ class storeWindow(QtWidgets.QWidget):
         self.df = pd.DataFrame(self.buffer)
         self.df.columns = ['X-data', 'Y-data', 'Z-data']
         self.ii += 1
-        
+
+
     def streamingData2(self, data):
-        ''' Get the data from the second device and 
+        """ Get the data from the second device and 
         save it to another buffer
-        '''        
+        """        
+        
         line = str(data)
         values = re.split('[:,}]', line)  # split the string to get the values
         
@@ -917,14 +989,18 @@ class storeWindow(QtWidgets.QWidget):
         self.df2 = pd.DataFrame(self.buffer2)
         self.df2.columns = ['X-data', 'Y-data', 'Z-data']
         self.jj += 1
-         
+
 
 if __name__ == '__main__':
     # Set device 
-    sensor_1 = Sensor()
-    #sensor_1.IP, sensor_1.port = select_sensor.find_sensor()   # used to be "device1"
-    
-    deviceFlag = False  # Define a flag to check if second device is selected
+    sensor = ngimu.Sensor(timeout=None)
+
+    # Set the defaults
+    sensor.channel = 'acc'
+    sensor.limit = 1.2      # [g]
+
+    second_sensor = False  # Define a flag to check if second device is selected used to be "deviceFlag"
+
     """
     query_device = input('Add another device (y/n)? ')
     if query_device == 'y':
@@ -945,6 +1021,7 @@ if __name__ == '__main__':
         app = QtWidgets.QApplication(sys.argv)
     else:
         app = QtWidgets.QApplication.instance()
+    #app = QtWidgets.QApplication.instance()
     
     # Set back- and foreground colors
     pg.setConfigOption('background', 'k')   
@@ -952,5 +1029,10 @@ if __name__ == '__main__':
     
     GUI = MainWindow()
     GUI.show()
+    
+    # Timer for updating the display
+    timer = QtCore.QTimer()
+    timer.timeout.connect(update)
+    timer.start(10)                  
     
     sys.exit(app.exec_())

@@ -19,7 +19,8 @@ import time
 import math
 import struct
 
-class NGIMU():
+
+class Sensor():
     """Routines to interact with an NGIMU-sensor (from XIO technologies)"""
 
 
@@ -55,10 +56,10 @@ class NGIMU():
 
         # Set a timeout so the socket does not block
         # indefinitely when trying to receive data.
-        self.socket.settimeout(0.2)
+        #self.socket.settimeout(0.2)
 
         # alternatively:
-        # self.socket.setblocking(False)  # equivalent to self.socket.settimeout(0.0)
+        self.socket.setblocking(False)  # equivalent to self.socket.settimeout(0.0)
 
         # This bit may not be necessary
         # "localhost" does NOT work! And "0" binds [should bind ???] to an open port
@@ -136,29 +137,34 @@ class NGIMU():
                Row-vector, shape as indicated under "Parameters"
         """
 
-        try:
-            UDP_data, addr = self.socket.recvfrom(self.packetsize)
-        except socket.error:
-            pass
-        else:
-            self._process_bundle(UDP_data)
-            
-            # from '/sensors'
-            if selection == 'data':
-                data = self.messages[0][2:]                   
-            elif selection == 'gyr':
-                data = self.messages[0][2:5]                   
-            elif selection == 'acc':
-                data = self.messages[0][5:8]                   
-            elif selection == 'mag':
-                data = self.messages[0][8:11]                   
-            elif selection == 'bar':
-                data = self.messages[0][-1:]                   
-            elif selection == 'quat':
-                # from '/quaternion'
-                data = self.messages[1][2:]                   
+        received = False
+        
+        while not received:
+            try:
+                UDP_data, addr = self.socket.recvfrom(self.packetsize)
+            except socket.error:
+                pass
             else:
-                raise TypeError(f'Do not know selection type {selection}')
+                self.messages = []
+                received = True
+                self._process_packet(UDP_data)
+                
+                # from '/sensors'
+                if selection == 'data':
+                    data = self.messages[0][2:]                   
+                elif selection == 'gyr':
+                    data = self.messages[0][2:5]                   
+                elif selection == 'acc':
+                    data = self.messages[0][5:8]                   
+                elif selection == 'mag':
+                    data = self.messages[0][8:11]                   
+                elif selection == 'bar':
+                    data = self.messages[0][-1:]                   
+                elif selection == 'quat':
+                    # from '/quaternion'
+                    data = self.messages[1][2:]                   
+                else:
+                    raise TypeError(f'Do not know selection type {selection}')
 
         return data
 
@@ -253,25 +259,26 @@ class NGIMU():
         
 if __name__ == '__main__':
     """
-    sensor = NGIMU(debug_flag=False)
+    sensor = Sensor(debug_flag=False)
     sensor.close()
     print(sensor.address[1])    
     """
     
-    sensor = NGIMU(debug_flag=True)
+    sensor = Sensor(debug_flag=True)
     print(f'IP-address: {sensor.address[0]}')
     print(f'Port: {sensor.address[1]}')
     
     for ii in range(10):
         measurement = sensor.get_data('acc')
         print(ii, measurement)
+        time.sleep(0.5)
     
     """
     import pickle
     data_file = 'message.bin'
     ngimu_data = pickle.load(open(data_file, 'rb'))
     
-    my_sensor = NGIMU(timeout=None)
+    my_sensor = Sensor(timeout=None)
     my_sensor._process_packet(ngimu_data)
     for message in my_sensor.messages:
         print(message)
