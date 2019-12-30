@@ -56,10 +56,10 @@ class Sensor():
 
         # Set a timeout so the socket does not block
         # indefinitely when trying to receive data.
-        #self.socket.settimeout(0.2)
+        self.socket.settimeout(0.2)
 
         # alternatively:
-        self.socket.setblocking(False)  # equivalent to self.socket.settimeout(0.0)
+        # self.socket.setblocking(False)  # equivalent to self.socket.settimeout(0.0)
 
         # This bit may not be necessary
         # "localhost" does NOT work! And "0" binds [should bind ???] to an open port
@@ -142,7 +142,25 @@ class Sensor():
         while not received:
             try:
                 UDP_data, addr = self.socket.recvfrom(self.packetsize)
+            except socket.timeout:
+                print('socket timed out!')
+
+                # self.socket.close()
+                # self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+                # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                # self.socket.settimeout(0.2)
+                # address = ('', 8015)
+                # self.socket.bind(address)
+                # self.packetsize = 2048 
+                # self.messages = []
+
+                # self.socket.close()
+                # self.socket.bind(address)
+
+                data = None
+                received = True
             except socket.error:
+                print('Other socket error.')
                 pass
             else:
                 self.messages = []

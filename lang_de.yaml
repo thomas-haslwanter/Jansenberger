@@ -3,6 +3,7 @@ Limits: '&Messbereich'
 Language: '&Sprache'
 Settings: '&Einstellungen'
 Start_Log: Aufzeichnen
+Stop_Log: Beenden
 Time_View: Zeitansicht
 TrafficLight_View: Ampel
 View: '&Ansicht'

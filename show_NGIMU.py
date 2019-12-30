@@ -38,7 +38,6 @@ if __name__=='__main__':
     app = QtGui.QApplication([])
     win = pg.GraphicsLayoutWidget(show=True, title='NGIMU')
 
-    num_data = 800
     win.resize(1000, 600)
     win.setWindowTitle('Data Viewer')
 
@@ -49,6 +48,7 @@ if __name__=='__main__':
     ph.enableAutoRange('xy', True)
     
     # Initialize the plot
+    num_data = 800
     sensor.data = np.zeros( (3, num_data) )
     sensor.channel = 'acc'
     

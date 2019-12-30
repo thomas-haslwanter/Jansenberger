@@ -3,6 +3,7 @@ Limits: '&Limits'
 Language: '&Language'
 Settings: '&Settings'
 Start_Log: Start Log
+Stop_Log: Stop Log
 Time_View: Time View
 TrafficLight_View: Traffic-Light View
 View: '&View'

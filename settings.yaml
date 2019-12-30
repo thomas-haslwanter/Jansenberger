@@ -1,6 +1,6 @@
 accLim: 1.2
 bottomColor: '#33cc33'
-dataDir: 'D:\\Users\\thomas\\Data\\CloudStation\\Projects\\IMUs\\Jansenberger\\data'
-gyrLim: 150
+dataDir: 'D:g\Users\thomas\Data\CloudStation\Projects\IMUs\Jansenberger\data'
+gyrLim: 400
 middleColor: '#ff9933'
 topColor: '#f2000d'
