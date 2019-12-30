@@ -56,7 +56,7 @@ class Sensor():
 
         # Set a timeout so the socket does not block
         # indefinitely when trying to receive data.
-        self.socket.settimeout(0.2)
+        self.socket.settimeout(0.1)
 
         # alternatively:
         # self.socket.setblocking(False)  # equivalent to self.socket.settimeout(0.0)
@@ -145,17 +145,17 @@ class Sensor():
             except socket.timeout:
                 print('socket timed out!')
 
-                # self.socket.close()
-                # self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-                # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                # self.socket.settimeout(0.2)
-                # address = ('', 8015)
-                # self.socket.bind(address)
-                # self.packetsize = 2048 
-                # self.messages = []
-
-                # self.socket.close()
-                # self.socket.bind(address)
+                """
+                self.socket.shutdown(socket.SHUT_RDWR)
+                self.socket.close()
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                self.socket.settimeout(0.2)
+                address = ('', 8015)
+                self.socket.bind(address)
+                self.packetsize = 2048 
+                self.messages = []
+                """
 
                 data = None
                 received = True

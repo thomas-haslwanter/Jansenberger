@@ -118,12 +118,12 @@ class TimeViewWindow(QtWidgets.QMainWindow):
         """ Choose what data to display """
         
         selected = self.comboBox.itemText(i)
-        if selected == 'acc':
-            self.sensor.channel = selected
+        if i == 0:
+            self.sensor.channel = 'acc'
             new_val = self.defaults['accLim']
             self.graphWidget.setYRange(-new_val, new_val)
-        elif selected == 'gyr':
-            self.sensor.channel = selected
+        elif i == 1:
+            self.sensor.channel = 'gyr'
             new_val = self.defaults['gyrLim']
             self.graphWidget.setYRange(-new_val, new_val)
         else:
@@ -137,8 +137,12 @@ class TimeViewWindow(QtWidgets.QMainWindow):
 
         # If the sensor times out, take the last received datapoint
         if not new_data:
-            new_data = self.sensor.data[:,-1]
             print('still running!')
+            new_data = self.sensor.data[:,-1]
+        elif len(new_data) != 3:
+            print('new data have the wrong shape!')
+            new_data = self.sensor.data[:,-1]
+            
                     
         # Update the 'data' for the plot, and put them into the corresponding plot-lines
         self.sensor.data = np.hstack((self.sensor.data[:,1:], np.c_[new_data]))
