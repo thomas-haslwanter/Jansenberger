@@ -56,10 +56,10 @@ class Sensor():
 
         # Set a timeout so the socket does not block
         # indefinitely when trying to receive data.
-        self.socket.settimeout(0.1)
+        # self.socket.settimeout(0.1)
 
         # alternatively:
-        # self.socket.setblocking(False)  # equivalent to self.socket.settimeout(0.0)
+        self.socket.setblocking(False)  # equivalent to self.socket.settimeout(0.0)
 
         # This bit may not be necessary
         # "localhost" does NOT work! And "0" binds [should bind ???] to an open port
@@ -125,12 +125,13 @@ class Sensor():
         ----------
         selection : string
                     Must be one of the following:
-                    * data : all measurement data (10,)
+                    * data : time, plus all measurement data (11,)
                     * gyr  : gyroscope [deg/s] (3,)
                     * acc  : accelerometer [g] (3,)
                     * mag  : magnetic field [uT] (3,)
                     * bar  : barometer [hPa] (1,)
                     * quat : quaternions (4,)
+                    * dat_quat : data + quaternions (15,)
         Returns
         -------
         data : ndarray
@@ -160,7 +161,7 @@ class Sensor():
                 data = None
                 received = True
             except socket.error:
-                print('Other socket error.')
+                # print('Other socket error.')
                 pass
             else:
                 self.messages = []
@@ -168,8 +169,10 @@ class Sensor():
                 self._process_packet(UDP_data)
                 
                 # from '/sensors'
-                if selection == 'data':
-                    data = self.messages[0][2:]                   
+                if selection[:3] == 'dat':
+                    data_list = self.messages[0]
+                    del data_list[1]
+                    data = data_list
                 elif selection == 'gyr':
                     data = self.messages[0][2:5]                   
                 elif selection == 'acc':
@@ -183,6 +186,9 @@ class Sensor():
                     data = self.messages[1][2:]                   
                 else:
                     raise TypeError(f'Do not know selection type {selection}')
+                
+                if selection == 'dat_quat':
+                    data.extend(self.messages[1][2:])
 
         return data
 
@@ -286,10 +292,16 @@ if __name__ == '__main__':
     print(f'IP-address: {sensor.address[0]}')
     print(f'Port: {sensor.address[1]}')
     
-    for ii in range(10):
+    #for ii in range(10):
+    ii = 0
+    start = time.time()
+    while True:
         measurement = sensor.get_data('acc')
         print(ii, measurement)
-        time.sleep(0.5)
+        ii += 1
+        stop = time.time()
+        print(f'{stop-start:4.1f}: {measurement}')
+        #time.sleep(0.5)
     
     """
     import pickle
