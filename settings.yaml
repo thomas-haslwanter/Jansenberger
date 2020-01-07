@@ -1,6 +1,10 @@
-accLim: 1.2
-bottomColor: '#33cc33'
-dataDir: 'D:\Users\thomas\Data\CloudStation\Projects\IMUs\Jansenberger\data'
-gyrLim: 400
-middleColor: '#ff9933'
-topColor: '#f2000d'
+accLim: 1.1
+bottomColor: '#00aa00'
+dataDir: D:\Users\thomas\Data\CloudStation\Projects\IMUs\Jansenberger\data
+gyrLim: 300.0
+init_channel: 16
+lower_thresh: 0.3
+middleColor: '#ffaa00'
+opening_view: 16
+topColor: red
+upper_thresh: 0.7

@@ -16,9 +16,9 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QStackedWidget" name="stackedWidget">
-      <property name="currentIndex">
-       <number>-1</number>
+     <widget class="QLabel" name="trafficLabel">
+      <property name="text">
+       <string>Traffic</string>
       </property>
      </widget>
     </item>
@@ -120,7 +120,6 @@
     </widget>
     <addaction name="actionLimits"/>
     <addaction name="menuLanguage"/>
-    <addaction name="actionChannels"/>
    </widget>
    <addaction name="menuMyViews"/>
    <addaction name="menuSettings"/>
@@ -154,11 +153,6 @@
   <action name="actionde">
    <property name="text">
     <string>de</string>
-   </property>
-  </action>
-  <action name="actionChannels">
-   <property name="text">
-    <string>Channels</string>
    </property>
   </action>
  </widget>
