@@ -9,3 +9,8 @@ TrafficLight_View: Traffic-Light View
 View: '&View'
 xy_View: xy View
 Status: Currently no logging
+Channels: Channels
+Thresholds: Thresholds
+Change_Defaults: Change Defaults
+Help: Help
+Help-file: Help

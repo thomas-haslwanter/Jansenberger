@@ -11,20 +11,22 @@ To be done:
     - interaction with multiple sensors
 """
 
-# author:   Thomas Haslwanter & Seb Madgewick
-# date:     Dec-2019
+# author:   Thomas Haslwanter & Seb Madgewick (code for data processing)
+# date:     Jan-2020
 
 import socket
 import time
 import math
 import struct
+import sys
+import numpy as np
 
 
 class Sensor():
     """Routines to interact with an NGIMU-sensor (from XIO technologies)"""
 
 
-    def __init__(self, timeout=5, debug_flag=False):
+    def __init__(self, port=8030, timeout=5, debug_flag=False):
         """Tries to establish a connection with an NGIMU on the current WLAN.
         If successful it sets the NGIMU_address (IP_address, port). Otherwise,
         this address is set to (-1, -1)
@@ -64,7 +66,7 @@ class Sensor():
         # This bit may not be necessary
         # "localhost" does NOT work! And "0" binds [should bind ???] to an open port
         #address = ('', 0)
-        address = ('', 8015)
+        address = ('', port)
         self.socket.bind(address)
 
         # Determined by the NGIMU-protocol?
@@ -161,8 +163,12 @@ class Sensor():
                 data = None
                 received = True
             except socket.error:
-                # print('Other socket error.')
+                #print('Other socket error.')
+                time.sleep(0.002)
                 pass
+            except:
+                print('Damn it, another error!')
+                sys.exit()
             else:
                 self.messages = []
                 received = True
@@ -288,22 +294,47 @@ if __name__ == '__main__':
     print(sensor.address[1])    
     """
     
-    sensor = Sensor(debug_flag=True)
-    print(f'IP-address: {sensor.address[0]}')
-    print(f'Port: {sensor.address[1]}')
+    ports = [8015]
     
-    #for ii in range(10):
+    sensors = []
+
+    for port in ports:
+        sensor = Sensor(port=port, debug_flag=True)
+        print(f'IP-address: {sensor.address[0]}')
+        print(f'Port: {sensor.address[1]}')
+
+        sensors.append(sensor)
+
+    print(sensors)
+        
+    out_file = 'data.txt'
+    fh = open(out_file, 'wb')
+
     ii = 0
-    start = time.time()
-    while True:
-        measurement = sensor.get_data('acc')
-        print(ii, measurement)
+    while ii < 1000:
+        measurement = np.array(sensor.get_data('dat_quat'))
+        np.savetxt(fh, measurement, delimiter=',')
         ii += 1
-        stop = time.time()
-        print(f'{stop-start:4.1f}: {measurement}')
-        #time.sleep(0.5)
+    fh.close()
+
+    print(f'Data saved to {out_file}')
     
     """
+    ii = 0
+    start = time.time()
+    lap_time = start
+    while True:
+        measurement = sensor.get_data('acc')
+        #print(ii, measurement)
+        ii += 1
+        stop = time.time()
+        dt = stop - lap_time
+        if dt > 1.:
+            lap_time = stop
+            print(f'{stop-start:4.1f}: {measurement}')
+        #time.sleep(0.5)
+
+    
     import pickle
     data_file = 'message.bin'
     ngimu_data = pickle.load(open(data_file, 'rb'))

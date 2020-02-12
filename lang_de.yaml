@@ -9,3 +9,8 @@ TrafficLight_View: Ampel
 View: '&Ansicht'
 xy_View: Schwerpunkt
 Status: Momentan keine Datenaufzeichnung
+Channels: Signale
+Thresholds: Schwellwerte
+Change_Defaults: Standardeinstellungen
+Help: Hilfe
+Help-file: Hilfe-File

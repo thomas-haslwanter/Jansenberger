@@ -119,11 +119,15 @@
      <addaction name="actionen"/>
      <addaction name="actionde"/>
     </widget>
+    <addaction name="actionSensor"/>
+    <addaction name="actionAutoRange"/>
     <addaction name="actionLimits"/>
     <addaction name="actionChannels"/>
     <addaction name="actionThresholds"/>
     <addaction name="actionChange_Defaults"/>
     <addaction name="menuLanguage"/>
+    <addaction name="actionSingles"/>
+    <addaction name="actionIndicate_Threshold"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -195,6 +199,26 @@
   <action name="actionThresholds">
    <property name="text">
     <string>Thresholds</string>
+   </property>
+  </action>
+  <action name="actionSensor">
+   <property name="text">
+    <string>Sensor</string>
+   </property>
+  </action>
+  <action name="actionSingles">
+   <property name="text">
+    <string>Singles</string>
+   </property>
+  </action>
+  <action name="actionIndicate_Threshold">
+   <property name="text">
+    <string>Indicate Threshold</string>
+   </property>
+  </action>
+  <action name="actionAutoRange">
+   <property name="text">
+    <string>AutoRange</string>
    </property>
   </action>
  </widget>
