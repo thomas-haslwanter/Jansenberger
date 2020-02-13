@@ -35,24 +35,30 @@ import ngimu
 class DefaultParameters(dt.DataSet):
     """ Settings Instructions 'comment': <br>Plain text or <b>rich text</b> are both supported. """
     
-    data_dir = di.DirectoryItem("Directory",'D:\\Users\\thomas\\Data\\CloudStation\\Projects\\IMUs\\Jansenberger\\data')
+    with open('settings.yaml', 'r') as fh:
+        defaults = yaml.load(fh, Loader=yaml.FullLoader)
+        
+    data_dir = di.DirectoryItem("Directory", defaults['dataDir'])
 
     _bg = dt.BeginGroup("Time View")
-    acc_limit = di.FloatItem("Limit [Accelerometer]", default=0.5, min=0, max=3, step=0.01, slider=True)                             
-    gyr_limit = di.FloatItem("Limit [Gyroscope]", default=300, min=100, max=1000, step=1, slider=True)                             
-    init_channel = di.ChoiceItem("Initial Channel", [(16, "acc"), (32, "gyr")], radio=True)
+    acc_limit = di.FloatItem("Limit [Accelerometer]", default=defaults['accLim'], min=0, max=3, step=0.01, slider=True)                             
+    gyr_limit = di.FloatItem("Limit [Gyroscope]", default=defaults['gyrLim'], min=100, max=1000, step=1, slider=True)                             
+    timeView_thresh = di.FloatItem("TimeView Threshold", default=defaults['TV_thresh'], min=0, max=3, step=0.01, slider=True)
     _eg = dt.EndGroup("Time View")
+    # For some funny reason, the display is off if this is put inside the "Time View"-Group
+    init_channel = di.ChoiceItem("Initial Channel", [(0,'acc'), (1,'gyr')], default=0, radio=True)
 
     _bcolor = dt.BeginGroup("Traffic Light")
-    color_top = di.ColorItem("Top", default="red")
-    color_middle = di.ColorItem("Middle", default="#ffaa00")
-    color_bottom  = di.ColorItem("Bottom", default="#00aa00")
-    upper_thresh = di.FloatItem("Upper Threshold", default=0.7, min=0, max=2, step=0.01, slider=True)                             
-    lower_thresh = di.FloatItem("Lower Threshold", default=0.3, min=0.1, max=1, step=0.01, slider=True)                             
+    
+    color_top = di.ColorItem("Top", default=defaults['topColor'])
+    color_middle = di.ColorItem("Middle", default=defaults['middleColor'])
+    color_bottom  = di.ColorItem("Bottom", default=defaults['bottomColor'])
+    upper_thresh = di.FloatItem("Upper Threshold", default=defaults['upper_thresh'], min=0, max=2, step=0.01, slider=True)                             
+    lower_thresh = di.FloatItem("Lower Threshold", default=defaults['lower_thresh'], min=0.1, max=1, step=0.01, slider=True)                             
     _ecolor = dt.EndGroup("Colors")
 
 
-    opening_view = di.ChoiceItem("Initial View", [(16, 'Time-View'), (32, "xy-View"), (64, 'TrafficLight-View')], radio=True)
+    opening_view = di.ChoiceItem("Initial View", [(0, 'Time-View'), (1, "xy-View"), (2, 'TrafficLight-View')], radio=True)
     
     
     
@@ -201,7 +207,8 @@ class MainWindow(QtWidgets.QMainWindow):
             'upper_thresh': e.upper_thresh,
             'lower_thresh': e.lower_thresh,
             'init_channel': e.init_channel,
-            'opening_view': e.opening_view
+            'opening_view': e.opening_view,
+            'TV_thresh':e.timeView_thresh
             }
             settings_file = 'settings.yaml'
             with open(settings_file, 'w') as fh:
@@ -297,7 +304,6 @@ class MainWindow(QtWidgets.QMainWindow):
             print('No sensor selected...')
             
         if self.view == 'timeView':
-            print('bumm')
             self.graphWidget.setYRange(-new_val, new_val)
         elif self.view == 'xyView':
             self.graphWidget.setXRange(-new_val, new_val)
@@ -398,27 +404,36 @@ class MainWindow(QtWidgets.QMainWindow):
 
             
     def select_singles(self):
-        """Select display of a single channel per sensor"""
+        """
+        Select display of a single channel per sensor
+        - The input has to be either 'x', 'y', or 'z'
+        - Otherwise, all three channels are displayed
+        """
+        
         # For 2 sensors, I have to make a new "view"
         
         valid = 'xyz'
         default_txt = 'x'
-        dlg = EnterText(title='Select channel(s) to display, or "0" (e.g. "x"):', default=default_txt)
+        dlg = EnterText(title='Select channel(s) to display (e.g. "x"), or "3" for all channels:', default=default_txt)
         if dlg.exec_():
             singles = dlg.valueEdit.text()
-            if len(singles) != len(self.sensors):
-                raise ValueError(f'Number of selected channels must equal number of sensors {len(sensors)}!')
-                return
-                
-            for single in singles:
-                if single.lower() not in valid:
-                    raise ValueError('Single channel selector has to have the form "x"!')
-                else: 
-                    for ii in range(3):
-                        if ii != 'xyz'.find(single.lower()):
-                            self.exp.curves[ii].setVisible(False)
-                        else:
+            #if len(singles) != len(self.sensors):
+                #raise ValueError(f'Number of selected channels must equal number of sensors {len(sensors)}!')
+                #return
+            if len(singles) != 1:   # For inputs with more than one letter, revert to "show all"
+                for ii in range(3):
+                    self.exp.curves[ii].setVisible(True)
+            else:    
+                for single in singles:
+                    if single.lower() not in valid:
+                        for ii in range(3):
                             self.exp.curves[ii].setVisible(True)
+                    else: 
+                        for ii in range(3):
+                            if ii != 'xyz'.find(single.lower()):
+                                self.exp.curves[ii].setVisible(False)
+                            else:
+                                self.exp.curves[ii].setVisible(True)
         
         
     def set_coordinates(self):
@@ -512,7 +527,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.threshold.setVisible(True)
         
-        dlg = EnterText(title='Upper Threshold:', default=np.round(self.TV_thresh, decimals=1))
+        dlg = EnterText(title='Threshold-value, or "none" for no display:', default=np.round(self.TV_thresh, decimals=1))
         if dlg.exec_():
             try:
                 new_val = np.float(dlg.valueEdit.text())
