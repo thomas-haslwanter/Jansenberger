@@ -831,8 +831,13 @@ def main():
     experiment = Experiment()
 
     # Establish the UDP connection
-    # Note that those numbers can change - this has yet to be automated, so that we can select the sensor!
-    ports = [8015]      # Here goes the list of the sensors; on my computer, it is "[8015, 8030]"
+    # Currently the numbers are taken from the "settings.yaml"-file. This has yet to be automated, so that we can select the sensor!
+    with open('settings.yaml', 'r') as fh:
+        defaults = yaml.load(fh, Loader=yaml.FullLoader)
+    ports = [defaults['sensor0']]
+    if defaults['sensor1'] != 0:
+        ports.append(defaults['sensor1'])
+        
     sensors = []
 
     for ii, port in enumerate(ports):
