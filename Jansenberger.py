@@ -7,7 +7,7 @@ The files "subjects.txt" and "experimentors.txt" have to be manipulated outside 
 """
 
 #   author: Thomas Haslwanter
-#   date:   Jan-2020
+#   date:   Feb-2020
 
 # Import the required standard Python packages, ...
 import numpy as np
@@ -32,6 +32,7 @@ import guidata.dataset.dataitems as di
 # ... and the module for the interface with the NGIMU
 import ngimu
 
+
 class DefaultParameters(dt.DataSet):
     """ Settings Instructions 'comment': <br>Plain text or <b>rich text</b> are both supported. """
     
@@ -40,34 +41,35 @@ class DefaultParameters(dt.DataSet):
         
     data_dir = di.DirectoryItem("Directory", defaults['dataDir'])
 
-    _bg = dt.BeginGroup("Time View")
+    _b_TimeView = dt.BeginGroup("Time View")
     acc_limit = di.FloatItem("Limit [Accelerometer]", default=defaults['accLim'], min=0, max=3, step=0.01, slider=True)                             
     gyr_limit = di.FloatItem("Limit [Gyroscope]", default=defaults['gyrLim'], min=100, max=1000, step=1, slider=True)                             
-    timeView_thresh = di.FloatItem("TimeView Threshold", default=defaults['TV_thresh'], min=0, max=3, step=0.01, slider=True)
-    _eg = dt.EndGroup("Time View")
+    thresholds = di.FloatItem("Thresholds", default=defaults['thresholds'], min=0, max=3, step=0.01, slider=True)
+    _e_TimeView = dt.EndGroup("Time View")
     # For some funny reason, the display is off if this is put inside the "Time View"-Group
-    init_channel = di.ChoiceItem("Initial Channel", [(0,'acc'), (1,'gyr')], default=0, radio=True)
+    init_sensorType = di.ChoiceItem("Initial sensortype", [(0,'acc'), (1,'gyr')], default=defaults['initSensortype'], radio=True)
 
-    _bcolor = dt.BeginGroup("Traffic Light")
-    
+    _b_Exercise = dt.BeginGroup("Exercise")
     color_top = di.ColorItem("Top", default=defaults['topColor'])
     color_middle = di.ColorItem("Middle", default=defaults['middleColor'])
     color_bottom  = di.ColorItem("Bottom", default=defaults['bottomColor'])
-    upper_thresh = di.FloatItem("Upper Threshold", default=defaults['upper_thresh'], min=0, max=2, step=0.01, slider=True)                             
-    lower_thresh = di.FloatItem("Lower Threshold", default=defaults['lower_thresh'], min=0.1, max=1, step=0.01, slider=True)                             
-    _ecolor = dt.EndGroup("Colors")
+    upper_thresh = di.FloatItem("Upper Threshold", default=defaults['upperThresh'], min=0, max=2, step=0.01, slider=True)                             
+    lower_thresh = di.FloatItem("Lower Threshold", default=defaults['lowerThresh'], min=0.1, max=1, step=0.01, slider=True)                             
+    _e_Exercise = dt.EndGroup("Colors")
 
+    _b_Sensors = dt.BeginGroup("Sensors")
+    sensor_0 = di.IntItem('Sensor 1', default=defaults['sensor0'])
+    sensor_1 = di.IntItem('Sensor 2', default=defaults['sensor1'])
+    _e_Sensors = dt.EndGroup("Sensors")
 
     opening_view = di.ChoiceItem("Initial View", [(0, 'Time-View'), (1, "xy-View"), (2, 'TrafficLight-View')], radio=True)
     
-    
-    
 
-    
 class MainWindow(QtWidgets.QMainWindow):
     """Class for the Time-View and the xy-View"""
 
     signal = pyqtSignal()
+    
     
     def __init__(self, sensors, experiment, *args, **kwargs):
         """ Initialization Routines """
@@ -96,7 +98,7 @@ class MainWindow(QtWidgets.QMainWindow):
                   #ph.plot(pen='r', label='a')]
         
         
-        self.threshold=None     # by default, show no threshold
+        self.threshold_handles=None     # by default, show no threshold
         self.comboBox.addItems(['Accelerometer', 'Gyroscope'])
         self.logging = False
 
@@ -105,15 +107,23 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lang_dict = yaml.load(fh, Loader=yaml.FullLoader)
 
         self.exitButton.setText( self.lang_dict['Exit'] )
-        self.logButton.setText( self.lang_dict['Start_Log'] )
-        self.actionTime_View.setText( self.lang_dict['Time_View'] )
-        self.actionxy_View.setText( self.lang_dict['xy_View'] )
-        self.actionTrafficLight_View.setText( self.lang_dict['TrafficLight_View'] )
+        self.logButton.setText( self.lang_dict['StartLog'] )
+        
+        self.action2dChannels.setText( self.lang_dict['2dChannels'] )
+        self.actionChangeDefaults.setText( self.lang_dict['ChangeDefaults'] )
+        self.actionExerciseView.setText( self.lang_dict['ExerciseView'] )
+        self.actionExThresholds.setText (self.lang_dict['ExThresholds'])
         self.actionLimits.setText( self.lang_dict['Limits'] )
-        self.menuLanguage.setTitle( self.lang_dict['Language'] )
-        self.menuMyViews.setTitle( self.lang_dict['View'] )
+        self.actionTimeView.setText( self.lang_dict['TimeView'] )
+        self.actionThresholds.setText (self.lang_dict['Thresholds'])
+        self.actionXyView.setText( self.lang_dict['XyView'] )
+        
+        self.menuModes.setTitle( self.lang_dict['Modes'] )
+        self.menuView.setTitle( self.lang_dict['View'] )
         self.menuHelp.setTitle( self.lang_dict['Help'] )
         self.menuSettings.setTitle( self.lang_dict['Settings'] )
+        self.menuLanguage.setTitle( self.lang_dict['Language'] )
+        
         self.statusBar().showMessage( self.lang_dict['Status'] )
 
         # Load the default settings
@@ -126,33 +136,33 @@ class MainWindow(QtWidgets.QMainWindow):
             with open('settings.yaml', 'r') as fh:
                 self.defaults = yaml.load(fh, Loader=yaml.FullLoader)
 
-        self.lower_thresh = self.defaults['lower_thresh']
-        self.upper_thresh = self.defaults['upper_thresh']
-        self.TV_thresh = self.defaults['TV_thresh']
-        self.actionHelp_file.triggered.connect( self.show_help )
+        self.lower_thresh = self.defaults['lowerThresh']
+        self.upper_thresh = self.defaults['upperThresh']
+        self.thresholds = self.defaults['thresholds']
+        self.actionHelpfile.triggered.connect( self.show_help )
         self.actionExit.triggered.connect( self.save_and_close )
-        self.actionAutoRange.triggered.connect( self.set_AutoRange )
-        self.actionLimits.triggered.connect( self.set_Limits )
-        self.actionThresholds.triggered.connect( self.set_thresholds )
-        self.actionIndicate_Threshold.triggered.connect( self.show_TV_threshold )
-        self.actionChannels.triggered.connect( self.set_coordinates )
-        self.actionSingles.triggered.connect( self.select_singles )
+        self.actionAutoRange.triggered.connect( self.set_autoRange )
+        self.actionLimits.triggered.connect( self.set_limits )
+        self.actionExThresholds.triggered.connect( self.set_exThresholds )
+        self.actionThresholds.triggered.connect( self.show_thresholds )
+        self.action2dChannels.triggered.connect( self.change_channels )
+        self.actionSingles.triggered.connect( self.show_singles )
         self.actionSensor.triggered.connect( self.set_sensor )
-        self.actionChange_Defaults.triggered.connect( self.change_defaults )
-        self.actionTime_View.triggered.connect( self.show_timeView )
-        self.actionxy_View.triggered.connect( self.show_xyView )
-        self.actionTrafficLight_View.triggered.connect( self.show_trafficlightView )
+        self.actionChangeDefaults.triggered.connect( self.change_defaults )
+        self.actionTimeView.triggered.connect( self.show_timeView )
+        self.actionXyView.triggered.connect( self.show_xyView )
+        self.actionExerciseView.triggered.connect( self.show_exerciseView )
         self.exitButton.clicked.connect( self.save_and_close )
-        self.actionen.triggered.connect( self.change_lang_to_eng )
-        self.actionde.triggered.connect( self.change_lang_to_de )
-        self.comboBox.currentIndexChanged.connect ( self.changeChannel )
+        self.actionLangEn.triggered.connect( self.change_lang_to_eng )
+        self.actionLangDe.triggered.connect( self.change_lang_to_de )
+        self.comboBox.currentIndexChanged.connect ( self.change_source )
         self.logButton.clicked.connect( self.record_data )
 
         
         # Set shortcuts
-        self.actionTime_View.setShortcut("Ctrl+1")
-        self.actionxy_View.setShortcut("Ctrl+2")
-        self.actionTrafficLight_View.setShortcut("Ctrl+3")
+        self.actionTimeView.setShortcut("Ctrl+1")
+        self.actionXyView.setShortcut("Ctrl+2")
+        self.actionExerciseView.setShortcut("Ctrl+3")
         self.actionExit.setShortcut("Ctrl+x")
         
         # Sensor data
@@ -160,18 +170,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.exp.curves = curves
         self.view = 'timeView'
         self.channel_nrs = [0,1]    # for xy-View
-        self.actionChannels.setEnabled(False)
-        self.actionThresholds.setEnabled(False)
+        self.action2dChannels.setEnabled(False)
+        self.actionExThresholds.setEnabled(False)
         self.setWindowTitle('Subject: ' + self.exp.subject)
         
         # Create the TrafficLight
-        self.light = TrafficLight(mainWin=self)
+        self.light = ExerciseLight(mainWin=self)
         self.stackedWidget.addWidget( self.light )
         self.signal.connect( self.light._trigger_refresh )
         
         self.stackedWidget.setCurrentIndex(0)
 
-        self.changeChannel(0)
+        self.change_source(0)
         
         # Timer for updating the display
         self.timer = QtCore.QTimer()
@@ -204,11 +214,13 @@ class MainWindow(QtWidgets.QMainWindow):
             'topColor': e.color_top,
             'middleColor': e.color_middle,
             'bottomColor': e.color_bottom,
-            'upper_thresh': e.upper_thresh,
-            'lower_thresh': e.lower_thresh,
-            'init_channel': e.init_channel,
-            'opening_view': e.opening_view,
-            'TV_thresh':e.timeView_thresh
+            'upperThresh': e.upper_thresh,
+            'lowerThresh': e.lower_thresh,
+            'initSensortype': e.init_sensorType,
+            'openingView': e.opening_view,
+            'thresholds': e.thresholds,
+            'sensor0': e.sensor_0,
+            'sensor1': e.sensor_1
             }
             settings_file = 'settings.yaml'
             with open(settings_file, 'w') as fh:
@@ -290,15 +302,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 print(f"Recorded data written to: {out_file['name']} ")
 
 
-    def changeChannel(self, i):
+    def change_source(self, i):
         """ Choose what data to display """
         
         selected = self.comboBox.itemText(i)
         if i == 0:
-            self.exp.channel = 'acc'
+            self.exp.sensorType = 'acc'
             new_val = self.defaults['accLim']
         elif i == 1:
-            self.exp.channel = 'gyr'
+            self.exp.sensorType = 'gyr'
             new_val = self.defaults['gyrLim']
         else:
             print('No sensor selected...')
@@ -347,12 +359,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 if dummy_data:
                     sensor.show_data = np.hstack((sensor.show_data[:,1:], np.c_[new_data]))
                 else:
-                    if self.exp.channel == 'acc':
+                    if self.exp.sensorType == 'acc':
                         sensor.show_data = np.hstack((sensor.show_data[:,1:], np.c_[new_data[4:7]]))
-                    elif self.exp.channel == 'gyr':
+                    elif self.exp.sensorType == 'gyr':
                         sensor.show_data = np.hstack((sensor.show_data[:,1:], np.c_[new_data[1:4]]))
                     else:
-                        print(f'Do not know channel {self.exp.channel}')
+                        print(f'Do not know channel {self.exp.sensorType}')
                 
                 if self.view == 'timeView':
                     for curve, data in zip(self.exp.curves[:3], sensor.show_data):
@@ -363,8 +375,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 if self.view == 'trafficlightView':
                     self.signal.emit()
-                
-                
 
             
     def set_sensor(self):
@@ -378,14 +388,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.exp.show_nr = new_val
         
         
-    def set_AutoRange(self):
+    def set_autoRange(self):
         """Automatically adjusts to the view all data"""
         
         self.graphWidget.enableAutoRange()
         
         
-    def set_Limits(self):
-        """Get a new value for the y-limit, and apply it to the existing graph"""
+    def set_limits(self):
+        """
+        Get a new value for the limits and apply them to the existing graph.
+        Works for timeView and for xyView
+        """
 
         dlg = EnterText(title='Y-Limit:', default=np.round(self.graphWidget.visibleRange().bottom(), decimals=2))
         if dlg.exec_():
@@ -403,7 +416,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print('No change')
 
             
-    def select_singles(self):
+    def show_singles(self):
         """
         Select display of a single channel per sensor
         - The input has to be either 'x', 'y', or 'z'
@@ -436,7 +449,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.exp.curves[ii].setVisible(True)
         
         
-    def set_coordinates(self):
+    def change_channels(self):
         """Select the channels in the xy-view """
 
         # Get current coordinates:
@@ -460,7 +473,7 @@ class MainWindow(QtWidgets.QMainWindow):
             print('No change')
 
             
-    def set_thresholds(self):
+    def set_exThresholds(self):
         """Select the lower/upper threshold for the TrafficLight-view """
     
         dlg = EnterText(title='Select lower/upper threshold (e.g. "0.4; 0.9"):')
@@ -502,13 +515,21 @@ class MainWindow(QtWidgets.QMainWindow):
         ph.setXRange(0, len(sensor.show_data[0]))
         ph.showGrid(x=False, y=False)
         
+        # Enable/disable the appropriate options
         self.actionLimits.setEnabled(True)
-        self.actionIndicate_Threshold.setEnabled(True)
-        self.actionChannels.setEnabled(False)
-        self.actionThresholds.setEnabled(False)
+        self.actionSingles.setEnabled(True)
+        self.actionThresholds.setEnabled(True)
         
+        self.action2dChannels.setEnabled(False)
+        self.actionExThresholds.setEnabled(False)
         
-    def show_TV_threshold(self):
+        # if you come from xyView, clear existing thresholds
+        if self.threshold_handles and (type(self.threshold_handles) == list):
+            for threshold in self.threshold_handles:
+                threshold.setVisible(False)
+                threshold = None
+        
+    def show_thresholds(self):
         """Indicates a horizontal 'threshold-line' in the timeView window
         - If a numerical value gets entered in the dialog, a white threshold line
           is set at that level.
@@ -516,30 +537,66 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         
         ph = self.graphWidget
+        #ph.autoRange(padding=0)
+        rect = ph.viewRect()
+        
         #axX = ph.getAxis('bottom')
         #curXRange = axX.range
         #axY = ph.getAxis('left')
-        x_data = self.exp.curves[0].getData()[0]
-        x_range = [np.min(x_data), np.max(x_data)]
         
-        if self.threshold is None:
-            self.threshold =  ph.plot(x_range, self.TV_thresh*np.r_[1,1], pen='w')
-        else:
-            self.threshold.setVisible(True)
+        #x_data = self.exp.curves[0].getData()[0]
+        #x_range = [np.min(x_data), np.max(x_data)]
         
-        dlg = EnterText(title='Threshold-value, or "none" for no display:', default=np.round(self.TV_thresh, decimals=1))
+        if self.view == 'timeView':
+            if self.threshold_handles is None:
+                self.threshold_handles =  ph.plot(np.r_[rect.left(), rect.right()], 
+                                                self.thresholds*np.r_[1,1],
+                                                pen='w')
+            else:
+                if type(self.threshold_handles) == list:
+                    for threshold in self.threshold_handles:
+                        threshold.setVisible(True)
+                else:
+                    self.threshold_handles.setVisible(True)
+                
+            num_data = len(self.exp.curves[0].getData()[0])
+            self.graphWidget.setXRange(0, num_data, padding=0)
+                
+        elif self.view == 'xyView':
+            if self.threshold_handles is None:
+                self.threshold_handles =  [
+                    ph.plot( self.thresholds*np.r_[-1,1], -self.thresholds*np.r_[1,1], pen='w'),
+                    ph.plot( self.thresholds*np.r_[-1,1],  self.thresholds*np.r_[1,1], pen='w'),
+                    ph.plot(-self.thresholds*np.r_[1,1],  self.thresholds*np.r_[-1,1], pen='w'),
+                    ph.plot( self.thresholds*np.r_[1,1],  self.thresholds*np.r_[-1,1], pen='w'),
+                    ]
+            else:
+                for threshold in self.threshold_handles:
+                    threshold.setVisible(True)
+            
+        
+        dlg = EnterText(title='Threshold-value, or "none" for no display:', default=np.round(self.thresholds, decimals=1))
         if dlg.exec_():
             try:
                 new_val = np.float(dlg.valueEdit.text())
                 print(f'New value: {new_val}')
-                self.TV_thresh=new_val
+                self.thresholds=new_val
     
                 if self.view == 'timeView':
-                    self.threshold.setData(x_range, self.TV_thresh*np.r_[1,1])
+                    self.threshold_handles.setData([rect.left(), rect.right()], self.thresholds*np.r_[1,1])
+                elif self.view == 'xyView':
+                    self.threshold_handles[0].setData( self.thresholds*np.r_[-1,1], -self.thresholds*np.r_[1,1] )
+                    self.threshold_handles[1].setData( self.thresholds*np.r_[-1,1],  self.thresholds*np.r_[1,1] )
+                    self.threshold_handles[2].setData(-self.thresholds*np.r_[1,1],  self.thresholds*np.r_[-1,1] )
+                    self.threshold_handles[3].setData( self.thresholds*np.r_[1,1],  self.thresholds*np.r_[-1,1] )
                 else:
                     raise ValueError(f'Do knot know channel {self.view}')
             except ValueError:      # if the user enters a string, such as 'None'
-                    self.threshold.setVisible(False)
+                if self.view == 'timeView':
+                    self.threshold_handles.setVisible(False)
+                else:           # xyView
+                    for threshold in self.threshold_handles:
+                        threshold.setVisible(False)
         else:
             print('No change')
         
@@ -569,24 +626,31 @@ class MainWindow(QtWidgets.QMainWindow):
         ph.setXRange(-new_val, new_val)
         ph.setYRange(-new_val, new_val)
         
+        # Enable/disable the appropriate options
+        self.action2dChannels.setEnabled(True)
         self.actionLimits.setEnabled(True)
-        self.actionChannels.setEnabled(True)
-        self.actionThresholds.setEnabled(False)
-        self.actionIndicate_Threshold.setEnabled(False)
         
+        self.actionExThresholds.setEnabled(False)
+        self.actionSingles.setEnabled(False)
+        #self.actionTimeviewThreshold.setEnabled(False)
+        
+        # if you come from timeView, clear existing thresholds
+        if self.threshold_handles and (type(self.threshold_handles) != list):
+            self.threshold_handles.setVisible(False)
+            self.threshold_handles = None
             
-    def show_trafficlightView(self):
+    def show_exerciseView(self):
         """Shows one signal as a traffic light, with two independent thresholds"""
         
         self.view = 'trafficlightView'
         self.stackedWidget.setCurrentIndex(1)
         
-        self.actionChannels.setEnabled(False)
+        self.action2dChannels.setEnabled(False)
         self.actionLimits.setEnabled(False)
-        self.actionThresholds.setEnabled(True)
+        self.actionExThresholds.setEnabled(True)
             
                     
-class TrafficLight(QtWidgets.QWidget):
+class ExerciseLight(QtWidgets.QWidget):
     """Paint a Traffic-light like signal"""
 
     def __init__(self, mainWin, *args, **kwargs):
@@ -698,7 +762,6 @@ class EnterText(QtWidgets.QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setMinimumWidth(500)
         self.setLayout(self.layout)
-
         
 
 def get_subjects():
@@ -727,7 +790,7 @@ class Experiment():
         self.num_data = 800     # for the display
         self.save_data = 100    # to save in blocks
         self.show_nr = 0        # which sensor to
-        self.channel = 'acc'    # which channel to display 
+        self.sensorType = 'acc'    # which channel to display 
 
         # Select the subject and the experimentor
         p = Subjects()      # "p" for "persons"

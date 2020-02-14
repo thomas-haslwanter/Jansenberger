@@ -99,61 +99,69 @@
      <height>22</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuMyViews">
+   <widget class="QMenu" name="menuModes">
     <property name="title">
-     <string>Views</string>
+     <string>Modes</string>
     </property>
-    <addaction name="actionTime_View"/>
-    <addaction name="actionxy_View"/>
-    <addaction name="actionTrafficLight_View"/>
+    <addaction name="actionTimeView"/>
+    <addaction name="actionXyView"/>
+    <addaction name="actionExerciseView"/>
     <addaction name="actionExit"/>
    </widget>
-   <widget class="QMenu" name="menuSettings">
+   <widget class="QMenu" name="menuView">
     <property name="title">
-     <string>&amp;Settings</string>
+     <string>View</string>
     </property>
-    <widget class="QMenu" name="menuLanguage">
-     <property name="title">
-      <string>Language</string>
-     </property>
-     <addaction name="actionen"/>
-     <addaction name="actionde"/>
-    </widget>
-    <addaction name="actionSensor"/>
     <addaction name="actionAutoRange"/>
     <addaction name="actionLimits"/>
-    <addaction name="actionChannels"/>
     <addaction name="actionThresholds"/>
-    <addaction name="actionChange_Defaults"/>
-    <addaction name="menuLanguage"/>
+    <addaction name="separator"/>
     <addaction name="actionSingles"/>
-    <addaction name="actionIndicate_Threshold"/>
+    <addaction name="separator"/>
+    <addaction name="action2dChannels"/>
+    <addaction name="separator"/>
+    <addaction name="actionExThresholds"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
      <string>Help</string>
     </property>
-    <addaction name="actionHelp_file"/>
+    <addaction name="actionHelpfile"/>
     <addaction name="separator"/>
    </widget>
-   <addaction name="menuMyViews"/>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Settings</string>
+    </property>
+    <widget class="QMenu" name="menuLanguage">
+     <property name="title">
+      <string>Language</string>
+     </property>
+     <addaction name="actionLangEn"/>
+     <addaction name="actionLangDe"/>
+    </widget>
+    <addaction name="actionChangeDefaults"/>
+    <addaction name="menuLanguage"/>
+   </widget>
+   <addaction name="menuModes"/>
+   <addaction name="menuView"/>
    <addaction name="menuSettings"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionTime_View">
+  <action name="actionTimeView">
    <property name="text">
     <string>Time View</string>
    </property>
   </action>
-  <action name="actionxy_View">
+  <action name="actionXyView">
    <property name="text">
-    <string>xy View</string>
+    <string>XY View</string>
    </property>
   </action>
-  <action name="actionTrafficLight_View">
+  <action name="actionExerciseView">
    <property name="text">
-    <string>TrafficLight View</string>
+    <string>Exercise View</string>
    </property>
   </action>
   <action name="actionLimits">
@@ -171,9 +179,9 @@
     <string>de</string>
    </property>
   </action>
-  <action name="actionChannels">
+  <action name="action2dChannels">
    <property name="text">
-    <string>Channels</string>
+    <string>2D-Channels</string>
    </property>
   </action>
   <action name="actionExit">
@@ -186,7 +194,7 @@
     <string>About</string>
    </property>
   </action>
-  <action name="actionHelp_file">
+  <action name="actionHelpfile">
    <property name="text">
     <string>Help-file</string>
    </property>
@@ -196,14 +204,14 @@
     <string>Change Defaults</string>
    </property>
   </action>
-  <action name="actionThresholds">
+  <action name="actionExThresholds">
    <property name="text">
-    <string>Thresholds</string>
+    <string>Exercise Thresholds</string>
    </property>
   </action>
   <action name="actionSensor">
    <property name="text">
-    <string>Sensor</string>
+    <string>Views</string>
    </property>
   </action>
   <action name="actionSingles">
@@ -211,14 +219,34 @@
     <string>Singles</string>
    </property>
   </action>
-  <action name="actionIndicate_Threshold">
+  <action name="actionThresholds">
    <property name="text">
-    <string>Indicate Threshold</string>
+    <string>Thresholds</string>
    </property>
   </action>
   <action name="actionAutoRange">
    <property name="text">
     <string>AutoRange</string>
+   </property>
+  </action>
+  <action name="actionChangeDefaults">
+   <property name="text">
+    <string>Change Defaults</string>
+   </property>
+  </action>
+  <action name="actionLanguage">
+   <property name="text">
+    <string>Language</string>
+   </property>
+  </action>
+  <action name="actionLangEn">
+   <property name="text">
+    <string>en</string>
+   </property>
+  </action>
+  <action name="actionLangDe">
+   <property name="text">
+    <string>de</string>
    </property>
   </action>
  </widget>
