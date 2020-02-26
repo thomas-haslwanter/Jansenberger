@@ -12,7 +12,6 @@ All information is stored in the database Jansenberger.db
 
 # Import the required standard Python packages, ...
 import numpy as np
-# import yaml
 import sys
 import shutil
 import time
@@ -28,19 +27,26 @@ from PyQt5 import QtWidgets, uic, QtCore, QtGui
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 import pyqtgraph as pg
 
+# ..., guidata, ...
 import guidata
-#_app = guidata.qapplication() # not required if a QApplication has already been created
 import guidata.dataset.datatypes as dt
 import guidata.dataset.dataitems as di
+#_app = guidata.qapplication() # not required if a QApplication has already been created
 
 # ... and the module for the interface with the NGIMU
-import ngimu
-#import no_sensor as ngimu
+#import ngimu
+
+# For program development, I want to be able to work without sensors
+import no_sensor as ngimu
+
+# All external information is in a single sqlite-database
+db_file = 'Jansenberger.db'
+
 
 class DefaultParameters(dt.DataSet):
-    """ Settings Instructions 'comment': <br>Plain text or <b>rich text</b> are both supported. """
+    """ Settings Instructions 'comment':
+    <br>Plain text or <b>rich text</b> are both supported. """
     
-    db_file = 'Jansenberger.db'
     defaults =  db.query_TableView(db_file,'Settings').\
             drop('id', axis=1).set_index('variable').value.to_dict()
     language_list = ('english', 'german')
@@ -48,19 +54,26 @@ class DefaultParameters(dt.DataSet):
     dataDir = di.DirectoryItem("Directory", defaults['dataDir'])
 
     _b_TimeView = dt.BeginGroup("Time View")
-    accLim = di.FloatItem("Limit [Accelerometer]", default=defaults['accLim'], min=0, max=3, step=0.01, slider=True)                             
-    gyrLim = di.FloatItem("Limit [Gyroscope]", default=defaults['gyrLim'], min=100, max=1000, step=1, slider=True)                             
-    thresholds = di.FloatItem("Thresholds", default=defaults['thresholds'], min=0, max=3, step=0.01, slider=True)
+    accLim = di.FloatItem("Limit [Accelerometer]",default=defaults['accLim'],
+                          min=0, max=3, step=0.01, slider=True)                             
+    gyrLim = di.FloatItem("Limit [Gyroscope]", default=defaults['gyrLim'],
+                          min=100, max=1000, step=1, slider=True)                             
+    thresholds = di.FloatItem("Thresholds", default=defaults['thresholds'],
+                              min=0, max=3, step=0.01, slider=True)
     _e_TimeView = dt.EndGroup("Time View")
-    # For some funny reason, the display is off if this is put inside the "Time View"-Group
-    initSensortype = di.ChoiceItem("Initial sensortype", [(0,'acc'), (1,'gyr')], default=int(defaults['initSensortype']), radio=True)
+    # For some funny reason, the display is off if this is put inside
+    # the "Time View"-Group
+    initSensortype = di.ChoiceItem("Initial sensortype", [(0,'acc'), (1,'gyr')],
+                           default=int(defaults['initSensortype']), radio=True)
 
     _b_Exercise = dt.BeginGroup("Exercise")
     topColor = di.ColorItem("Top", default=defaults['topColor'])
     middleColor = di.ColorItem("Middle", default=defaults['middleColor'])
     bottomColor  = di.ColorItem("Bottom", default=defaults['bottomColor'])
-    upperThresh = di.FloatItem("Upper Threshold", default=defaults['upperThresh'], min=0, max=2, step=0.01, slider=True)                             
-    lowerThresh = di.FloatItem("Lower Threshold", default=defaults['lowerThresh'], min=0.1, max=1, step=0.01, slider=True)
+    upperThresh = di.FloatItem("Upper Threshold", default=defaults['upperThresh'],
+                               min=0, max=2, step=0.01, slider=True)                             
+    lowerThresh = di.FloatItem("Lower Threshold", default=defaults['lowerThresh'],
+                               min=0.1, max=1, step=0.01, slider=True)
     _e_Exercise = dt.EndGroup("Colors")
 
     _b_Sensors = dt.BeginGroup("Sensors")
@@ -68,10 +81,14 @@ class DefaultParameters(dt.DataSet):
     sensor1 = di.IntItem('Sensor 2', default=defaults['sensor1'])
     _e_Sensors = dt.EndGroup("Sensors")
 
-    openingView = di.ChoiceItem("Initial View", [(0, 'Time-View'), (1, "xy-View"), (2, 'TrafficLight-View')], radio=True)
-    language = di.ChoiceItem("Language", language_list, default=int(defaults['language']), radio=True)
+    openingView = di.ChoiceItem("Initial View",
+                [(0, 'Time-View'), (1, "xy-View"), (2, 'TrafficLight-View')],
+                radio=True)
+    language = di.ChoiceItem("Language", language_list,
+                             default=int(defaults['language']), radio=True)
     
 
+    
 class MainWindow(QtWidgets.QMainWindow):
     """Class for the Time-View and the xy-View"""
 
@@ -95,7 +112,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.graphWidget = pg.PlotWidget()
         self.stackedWidget.addWidget( self.graphWidget )
         
-        
         # Initialize 3 curves
         # For the TimeView all 3 are required, the xy-View uses only the first one
         ph = self.graphWidget
@@ -104,7 +120,6 @@ class MainWindow(QtWidgets.QMainWindow):
                   ph.plot(pen='g', label='z'),
                   ph.plot(pen='b', size=50, symbolBrush='r', symbolPen='w')]
                   #ph.plot(pen='r', label='a')]
-        
         
         self.threshold_handles=None     # by default, show no threshold
         self.accGyr_Box.addItems(['Accelerometer', 'Gyroscope'])
@@ -257,7 +272,6 @@ class MainWindow(QtWidgets.QMainWindow):
                     comments.edit()
                     
                     self.db_entry(comments.quality, comments.text)
-                    
             
         # Close the application            
         self.close()
@@ -277,7 +291,15 @@ class MainWindow(QtWidgets.QMainWindow):
         conn = sqlite3.connect(self.db_file)
         cur = conn.cursor()
         
-        recordings_sql = 'INSERT INTO Recordings (id_subject, id_experimentor, id_paradigm, filename, date_time, num_sensors, quality, comments) VALUES (?,?,?,?,?,?,?,?)'
+        recordings_sql = '''INSERT INTO Recordings (
+                    id_subject,
+                    id_experimentor,
+                    id_paradigm,
+                    filename,
+                    date_time,
+                    num_sensors,
+                    quality,
+                    comments) VALUES (?,?,?,?,?,?,?,?)'''
         
         # Date
         now = datetime.datetime.now()
@@ -302,7 +324,8 @@ class MainWindow(QtWidgets.QMainWindow):
         
 
     def record_data(self):
-        """ Stream the incoming signals to a unique file in the selected data-directory """
+        """ Stream the incoming signals to a unique file
+        in the selected data-directory """
         
         if self.logging == False:
             self.logging = True
@@ -340,11 +363,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 #fh_out.write(f'Sample rate: '.encode())
                 
                 fh_out.write(b'Time (s),'+\
-                                  b'Gyroscope X (deg/s),Gyroscope Y (deg/s),Gyroscope Z (deg/s),'+\
-                                  b'Accelerometer X (g),Accelerometer Y (g),Accelerometer Z (g),'+\
-                                  b'Magnetometer X (uT),Magnetometer Y (uT),Magnetometer Z (uT),'+\
-                                  b'Barometer (hPa),'+\
-                                  b'Quat 0, Quat X, Quat Y, Quat Z\n')
+              b'Gyroscope X (deg/s),Gyroscope Y (deg/s),Gyroscope Z (deg/s),'+\
+              b'Accelerometer X (g),Accelerometer Y (g),Accelerometer Z (g),'+\
+              b'Magnetometer X (uT),Magnetometer Y (uT),Magnetometer Z (uT),'+\
+              b'Barometer (hPa),'+\
+              b'Quat 0, Quat X, Quat Y, Quat Z\n')
 
                 self.out_files.append({'fh':fh_out, 'name':out_file})
                 
@@ -356,7 +379,9 @@ class MainWindow(QtWidgets.QMainWindow):
             
             for out_file, sensor in zip(self.out_files, self.sensors):
                 if sensor.store_ptr > 0:
-                    np.savetxt(out_file['fh'], sensor.store_data[:sensor.store_ptr,:], delimiter=',')
+                    np.savetxt(out_file['fh'],
+                               sensor.store_data[:sensor.store_ptr,:],
+                               delimiter=',')
                 out_file['fh'].close()
                 print(f"Recorded data written to: {out_file['name']} ")
                 
@@ -420,20 +445,25 @@ class MainWindow(QtWidgets.QMainWindow):
                     sensor.store_ptr += 1
 
             if sensor.store_ptr == len(sensor.store_data):
-                np.savetxt(self.out_files[ii]['fh'], sensor.store_data, delimiter=',')
+                np.savetxt(self.out_files[ii]['fh'],
+                           sensor.store_data, delimiter=',')
                 sensor.store_ptr = 0
                 
 
             # Data viewer
             if ii == self.exp.show_nr:
-                # Update the 'data' for the plot, and put them into the corresponding plot-lines
+                # Update the 'data' for the plot,
+                # and put them into the corresponding plot-lines
                 if dummy_data:
-                    sensor.show_data = np.hstack((sensor.show_data[:,1:], np.c_[new_data]))
+                    sensor.show_data = np.hstack((sensor.show_data[:,1:],
+                                                  np.c_[new_data]))
                 else:
                     if self.exp.sensorType == 'acc':
-                        sensor.show_data = np.hstack((sensor.show_data[:,1:], np.c_[new_data[4:7]]))
+                        sensor.show_data = np.hstack((sensor.show_data[:,1:],
+                                                      np.c_[new_data[4:7]]))
                     elif self.exp.sensorType == 'gyr':
-                        sensor.show_data = np.hstack((sensor.show_data[:,1:], np.c_[new_data[1:4]]))
+                        sensor.show_data = np.hstack((sensor.show_data[:,1:],
+                                                      np.c_[new_data[1:4]]))
                     else:
                         print(f'Do not know channel {self.exp.sensorType}')
                 
@@ -441,8 +471,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     for curve, data in zip(self.exp.curves[:3], sensor.show_data):
                         curve.setData(data)
                 elif self.view == 'xyView':
-                    self.exp.curves[0].setData(sensor.show_data[self.channel_nrs[0]], sensor.show_data[self.channel_nrs[1]])
-                    self.exp.curves[3].setData([sensor.show_data[self.channel_nrs[0]][-1]], [sensor.show_data[self.channel_nrs[1]][-1]])
+                    self.exp.curves[0].setData(
+                        sensor.show_data[self.channel_nrs[0]],
+                        sensor.show_data[self.channel_nrs[1]])
+                    self.exp.curves[3].setData(
+                        [sensor.show_data[self.channel_nrs[0]][-1]],
+                        [sensor.show_data[self.channel_nrs[1]][-1]])
 
                 if self.view == 'trafficlightView':
                     self.signal.emit()
@@ -451,7 +485,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def set_sensor(self):
         """Select which sensor to display"""
         
-        dlg = EnterText(title=f'Select sensor (max={len(self.sensors)-1}):', default=self.exp.show_nr)
+        dlg = EnterText(title=f'Select sensor (max={len(self.sensors)-1}):',
+                        default=self.exp.show_nr)
         if dlg.exec_():
             new_val = np.int(dlg.valueEdit.text())
             print(f'New value: {new_val}')
@@ -471,7 +506,8 @@ class MainWindow(QtWidgets.QMainWindow):
         Works for timeView and for xyView
         """
 
-        dlg = EnterText(title='Y-Limit:', default=np.round(self.graphWidget.visibleRange().bottom(), decimals=2))
+        dlg = EnterText(title='Y-Limit:',
+          default=np.round(self.graphWidget.visibleRange().bottom(), decimals=2))
         if dlg.exec_():
             new_val = np.float(dlg.valueEdit.text())
             print(f'New value: {new_val}')
@@ -576,7 +612,7 @@ class MainWindow(QtWidgets.QMainWindow):
             language = self.language
 
         # Get the language entries from the database
-        lang_dicts = db.query_TableView('Jansenberger.db','Language').\
+        lang_dicts = db.query_TableView(db_file, 'Language').\
                 drop(['id'], axis=1).set_index('token').to_dict()
         
         if language == '0':       # english
@@ -876,7 +912,6 @@ class EnterText(QtWidgets.QDialog):
 def get_subjects():
     """ Initial setup, who does the recording and who is the subject"""
     
-    db_file = 'Jansenberger.db'
     subj =  db.query_TableView(db_file,'Subjects')
     subj['full_name'] = subj.first_name + ' ' + subj.last_name
     
@@ -895,8 +930,6 @@ class Experiment():
         self.show_nr = 0        # which sensor to
         self.sensorType = 'acc'    # which channel to display 
         
-        db_file = 'Jansenberger.db'
-
         # Select the subject and the experimentor
         p = Subjects()      # "p" for "persons"
         p.edit()
@@ -952,7 +985,6 @@ def main():
 
     # Establish the UDP connection
     # Currently the numbers are taken from the "settings.yaml"-file. This has yet to be automated, so that we can select the sensor!
-    db_file = 'Jansenberger.db'
     defaults = db.query_TableView(db_file,'Settings').\
             drop('id', axis=1).set_index('variable').value.to_dict()
     

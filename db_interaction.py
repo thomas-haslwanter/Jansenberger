@@ -291,10 +291,28 @@ def query_TableView(db_name, table):
     # print(df)
     return df
 
-    
+
+def export_view(db_name, xls_name, view='v_exercises'):
+    """
+    Export a view to an MS-Excel file
+
+    Parameters
+    ----------
+    db_name : string
+            Name of the sqlite database
+    xls_name : string
+            Name of the output-file (MS-Excel format)
+    view : string
+        Database-view for the export
+
+    """
+
+    df = query_TableView(db_name, view)
+    df.to_excel(xls_name)
 
 if __name__ == '__main__':
     
+    """
     # Set the parameters
     in_file = 'test_data.txt'
     db_name = 'test.db'
@@ -310,4 +328,10 @@ if __name__ == '__main__':
     create_view(db_name)
     query_TableView(db_name, 'v_exercises')
     input('Done')
+    """ 
     
+    db_name = 'Jansenberger.db'
+    xls_name = 'out.xlsx'
+
+    df = export_view(db_name, xls_name)
+    print('Done')
