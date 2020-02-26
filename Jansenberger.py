@@ -3,7 +3,8 @@ App for recording experimental data with the NGIMU, at the Institute Jansenberge
 
 Notes
 -----
-The files "subjects.txt" and "experimentors.txt" have to be manipulated outside this program.
+All information is stored in the database Jansenberger.db
+
 """
 
 #   author: Thomas Haslwanter
@@ -11,12 +12,15 @@ The files "subjects.txt" and "experimentors.txt" have to be manipulated outside 
 
 # Import the required standard Python packages, ...
 import numpy as np
-import yaml
+# import yaml
 import sys
 import shutil
 import time
 import datetime
 import os
+import pandas as pd
+import sqlite3
+import db_interaction as db
 
 
 # ..., the Qt-packages, ...
@@ -31,38 +35,41 @@ import guidata.dataset.dataitems as di
 
 # ... and the module for the interface with the NGIMU
 import ngimu
-
+#import no_sensor as ngimu
 
 class DefaultParameters(dt.DataSet):
     """ Settings Instructions 'comment': <br>Plain text or <b>rich text</b> are both supported. """
     
-    with open('settings.yaml', 'r') as fh:
-        defaults = yaml.load(fh, Loader=yaml.FullLoader)
+    db_file = 'Jansenberger.db'
+    defaults =  db.query_TableView(db_file,'Settings').\
+            drop('id', axis=1).set_index('variable').value.to_dict()
+    language_list = ('english', 'german')
         
-    data_dir = di.DirectoryItem("Directory", defaults['dataDir'])
+    dataDir = di.DirectoryItem("Directory", defaults['dataDir'])
 
     _b_TimeView = dt.BeginGroup("Time View")
-    acc_limit = di.FloatItem("Limit [Accelerometer]", default=defaults['accLim'], min=0, max=3, step=0.01, slider=True)                             
-    gyr_limit = di.FloatItem("Limit [Gyroscope]", default=defaults['gyrLim'], min=100, max=1000, step=1, slider=True)                             
+    accLim = di.FloatItem("Limit [Accelerometer]", default=defaults['accLim'], min=0, max=3, step=0.01, slider=True)                             
+    gyrLim = di.FloatItem("Limit [Gyroscope]", default=defaults['gyrLim'], min=100, max=1000, step=1, slider=True)                             
     thresholds = di.FloatItem("Thresholds", default=defaults['thresholds'], min=0, max=3, step=0.01, slider=True)
     _e_TimeView = dt.EndGroup("Time View")
     # For some funny reason, the display is off if this is put inside the "Time View"-Group
-    init_sensorType = di.ChoiceItem("Initial sensortype", [(0,'acc'), (1,'gyr')], default=defaults['initSensortype'], radio=True)
+    initSensortype = di.ChoiceItem("Initial sensortype", [(0,'acc'), (1,'gyr')], default=int(defaults['initSensortype']), radio=True)
 
     _b_Exercise = dt.BeginGroup("Exercise")
-    color_top = di.ColorItem("Top", default=defaults['topColor'])
-    color_middle = di.ColorItem("Middle", default=defaults['middleColor'])
-    color_bottom  = di.ColorItem("Bottom", default=defaults['bottomColor'])
-    upper_thresh = di.FloatItem("Upper Threshold", default=defaults['upperThresh'], min=0, max=2, step=0.01, slider=True)                             
-    lower_thresh = di.FloatItem("Lower Threshold", default=defaults['lowerThresh'], min=0.1, max=1, step=0.01, slider=True)                             
+    topColor = di.ColorItem("Top", default=defaults['topColor'])
+    middleColor = di.ColorItem("Middle", default=defaults['middleColor'])
+    bottomColor  = di.ColorItem("Bottom", default=defaults['bottomColor'])
+    upperThresh = di.FloatItem("Upper Threshold", default=defaults['upperThresh'], min=0, max=2, step=0.01, slider=True)                             
+    lowerThresh = di.FloatItem("Lower Threshold", default=defaults['lowerThresh'], min=0.1, max=1, step=0.01, slider=True)
     _e_Exercise = dt.EndGroup("Colors")
 
     _b_Sensors = dt.BeginGroup("Sensors")
-    sensor_0 = di.IntItem('Sensor 1', default=defaults['sensor0'])
-    sensor_1 = di.IntItem('Sensor 2', default=defaults['sensor1'])
+    sensor0 = di.IntItem('Sensor 1', default=defaults['sensor0'])
+    sensor1 = di.IntItem('Sensor 2', default=defaults['sensor1'])
     _e_Sensors = dt.EndGroup("Sensors")
 
-    opening_view = di.ChoiceItem("Initial View", [(0, 'Time-View'), (1, "xy-View"), (2, 'TrafficLight-View')], radio=True)
+    openingView = di.ChoiceItem("Initial View", [(0, 'Time-View'), (1, "xy-View"), (2, 'TrafficLight-View')], radio=True)
+    language = di.ChoiceItem("Language", language_list, default=int(defaults['language']), radio=True)
     
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -71,7 +78,7 @@ class MainWindow(QtWidgets.QMainWindow):
     signal = pyqtSignal()
     
     
-    def __init__(self, sensors, experiment, *args, **kwargs):
+    def __init__(self, sensors, experiment, db_file, *args, **kwargs):
         """ Initialization Routines """
 
         super(MainWindow, self).__init__(*args, **kwargs)
@@ -79,6 +86,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Experimental parameters
         self.exp = experiment
+        self.db_file = db_file
 
         #Load the UI Page
         uic.loadUi('Jansenberger.ui', self)
@@ -99,36 +107,19 @@ class MainWindow(QtWidgets.QMainWindow):
         
         
         self.threshold_handles=None     # by default, show no threshold
-        self.comboBox.addItems(['Accelerometer', 'Gyroscope'])
+        self.accGyr_Box.addItems(['Accelerometer', 'Gyroscope'])
         self.logging = False
-
-        # Change the language settings
-        with open('lang.yaml', 'r') as fh:
-            self.lang_dict = yaml.load(fh, Loader=yaml.FullLoader)
-
-        self.exitButton.setText( self.lang_dict['Exit'] )
-        self.logButton.setText( self.lang_dict['StartLog'] )
         
-        self.action2dChannels.setText( self.lang_dict['2dChannels'] )
-        self.actionChangeDefaults.setText( self.lang_dict['ChangeDefaults'] )
-        self.actionExerciseView.setText( self.lang_dict['ExerciseView'] )
-        self.actionExThresholds.setText (self.lang_dict['ExThresholds'])
-        self.actionLimits.setText( self.lang_dict['Limits'] )
-        self.actionTimeView.setText( self.lang_dict['TimeView'] )
-        self.actionThresholds.setText (self.lang_dict['Thresholds'])
-        self.actionXyView.setText( self.lang_dict['XyView'] )
-        
-        self.menuModes.setTitle( self.lang_dict['Modes'] )
-        self.menuView.setTitle( self.lang_dict['View'] )
-        self.menuHelp.setTitle( self.lang_dict['Help'] )
-        self.menuSettings.setTitle( self.lang_dict['Settings'] )
-        self.menuLanguage.setTitle( self.lang_dict['Language'] )
-        
-        self.statusBar().showMessage( self.lang_dict['Status'] )
+        self.df_paradigms = db.query_TableView(self.db_file, 'Paradigms')
+        self.exp_Box.addItems(self.df_paradigms.description.tolist())
+        self.paradigm = self.df_paradigms.abbreviation[0]
+        self.id_paradigm = self.df_paradigms.id[0]
 
         # Load the default settings
-        with open('settings.yaml', 'r') as fh:
-            self.defaults = yaml.load(fh, Loader=yaml.FullLoader)
+        self.defaults = db.query_TableView(db_file, 'Settings').\
+            drop(['id'], axis=1).set_index('variable').value.to_dict()
+        #with open('settings.yaml', 'r') as fh:
+            #self.defaults = yaml.load(fh, Loader=yaml.FullLoader)
         
         # Make sure the default data-dir exists
         if not os.path.exists(self.defaults['dataDir']):
@@ -136,9 +127,11 @@ class MainWindow(QtWidgets.QMainWindow):
             with open('settings.yaml', 'r') as fh:
                 self.defaults = yaml.load(fh, Loader=yaml.FullLoader)
 
-        self.lower_thresh = self.defaults['lowerThresh']
-        self.upper_thresh = self.defaults['upperThresh']
-        self.thresholds = self.defaults['thresholds']
+        self.lower_thresh = float(self.defaults['lowerThresh'])
+        self.upper_thresh = float(self.defaults['upperThresh'])
+        self.thresholds = float(self.defaults['thresholds'])
+        
+        self.language = self.defaults['language']
         self.actionHelpfile.triggered.connect( self.show_help )
         self.actionExit.triggered.connect( self.save_and_close )
         self.actionAutoRange.triggered.connect( self.set_autoRange )
@@ -153,18 +146,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actionXyView.triggered.connect( self.show_xyView )
         self.actionExerciseView.triggered.connect( self.show_exerciseView )
         self.exitButton.clicked.connect( self.save_and_close )
-        self.actionLangEn.triggered.connect( self.change_lang_to_eng )
-        self.actionLangDe.triggered.connect( self.change_lang_to_de )
-        self.comboBox.currentIndexChanged.connect ( self.change_source )
+        self.actionLangEn.triggered.connect( lambda: self.set_language('0') )
+        self.actionLangDe.triggered.connect( lambda: self.set_language('1') )
+        self.accGyr_Box.currentIndexChanged.connect ( self.change_source )
+        self.exp_Box.currentIndexChanged.connect ( self.change_paradigm )
         self.logButton.clicked.connect( self.record_data )
 
-        
         # Set shortcuts
         self.actionTimeView.setShortcut("Ctrl+1")
         self.actionXyView.setShortcut("Ctrl+2")
         self.actionExerciseView.setShortcut("Ctrl+3")
         self.actionExit.setShortcut("Ctrl+x")
         
+        # Set the language-dependent labels
+        self.set_language()
+
         # Sensor data
         self.sensors = sensors
         self.exp.curves = curves
@@ -172,7 +168,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.channel_nrs = [0,1]    # for xy-View
         self.action2dChannels.setEnabled(False)
         self.actionExThresholds.setEnabled(False)
-        self.setWindowTitle('Subject: ' + self.exp.subject)
+        self.setWindowTitle('Subject: ' + self.exp.subject_name)
         
         # Create the TrafficLight
         self.light = ExerciseLight(mainWin=self)
@@ -205,45 +201,104 @@ class MainWindow(QtWidgets.QMainWindow):
         _app = guidata.qapplication()
         
         e = DefaultParameters()
-        print(e)
         if e.edit():
             defaults = {
-            'accLim': e.acc_limit,
-            'gyrLim': e.gyr_limit,
-            'dataDir': e.data_dir,
-            'topColor': e.color_top,
-            'middleColor': e.color_middle,
-            'bottomColor': e.color_bottom,
-            'upperThresh': e.upper_thresh,
-            'lowerThresh': e.lower_thresh,
-            'initSensortype': e.init_sensorType,
-            'openingView': e.opening_view,
+            'accLim': e.accLim,
+            'gyrLim': e.gyrLim,
+            'dataDir': e.dataDir,
+            'topColor': e.topColor,
+            'middleColor': e.middleColor,
+            'bottomColor': e.bottomColor,
+            'upperThresh': e.upperThresh,
+            'lowerThresh': e.lowerThresh,
+            'initSensortype': e.initSensortype,
+            'openingView': e.openingView,
+            'language': e.language,
             'thresholds': e.thresholds,
-            'sensor0': e.sensor_0,
-            'sensor1': e.sensor_1
+            'sensor0': e.sensor0,
+            'sensor1': e.sensor1
             }
-            settings_file = 'settings.yaml'
-            with open(settings_file, 'w') as fh:
-                yaml.dump(defaults, fh)
-            print(f'New settings saved to {settings_file}')
-            print(e)
-            # e.view()
+            
+            #print(e)
+            e.view()
+            
+            # Settings
+            conn = sqlite3.connect(self.db_file)
+            cur = conn.cursor()
+            
+            for  key in e.defaults.keys():
+                settings_sql = """
+                UPDATE Settings
+                    SET value = '{0}'
+                WHERE variable = '{1}'
+                """.format(e.__getattribute__(key), key)
+                cur.execute(settings_sql)
+                
+            conn.commit()
+            conn.close()
         
         
     def save_and_close(self):
         """ Saves logging stream and closes the program """
 
+        # Stop the recording
+        self.timer.stop()
+        
         if hasattr(self, 'out_files'):
             for sensor, out_file in zip(self.sensors, self.out_files):
                 if not out_file['fh'].closed:
                     if sensor.store_ptr > 0:
                         print(sensor.store_ptr)
-                        np.savetxt(out_file, sensor.store_data[:sensor.store_ptr,:], delimiter=',')
+                        np.savetxt(out_file['name'], sensor.store_data[:sensor.store_ptr,:], delimiter=',')
                     out_file['fh'].close()
                     print(f"Recorded data written to: {out_file['name']}")
+                    
+                    comments = Comments(title='Comments to the current recordings:')    
+                    comments.edit()
+                    
+                    self.db_entry(comments.quality, comments.text)
+                    
             
         # Close the application            
         self.close()
+
+        
+    def db_entry(self, quality, comments):
+        """Enters the latest recording into the database
+        
+        Parameters
+        ----------
+        quality : integer
+                Level of quality, from 1 (=best) to 3 (=worst)
+        comments : text
+                Comments to the recording
+        """
+        
+        conn = sqlite3.connect(self.db_file)
+        cur = conn.cursor()
+        
+        recordings_sql = 'INSERT INTO Recordings (id_subject, id_experimentor, id_paradigm, filename, date_time, num_sensors, quality, comments) VALUES (?,?,?,?,?,?,?,?)'
+        
+        # Date
+        now = datetime.datetime.now()
+        date_time = now.strftime("%Y-%m-%d_%H-%M")
+        
+        # Filename
+        full_file_name = self.out_files[0]['name']
+        file_name = os.path.split(full_file_name)[1]
+        data =  (int(self.exp.id_subject),
+                 int(self.exp.id_experimentor),
+                 int(self.id_paradigm),
+                 file_name,
+                 date_time,
+                 len(self.out_files),
+                 quality,
+                 comments)
+        
+        cur.execute(recordings_sql, data )
+        
+        conn.commit()
+        conn.close()
         
 
     def record_data(self):
@@ -251,33 +306,37 @@ class MainWindow(QtWidgets.QMainWindow):
         
         if self.logging == False:
             self.logging = True
-            self.logButton.setText( self.lang_dict['Stop_Log'] )
+            self.logButton.setText( self.lang_dict['StopLog'] )
             self.logButton.setStyleSheet('background-color: red')
             
             now = datetime.datetime.now()
-            date_time = now.strftime("%Y%m%d_%H-%M-%S")
+            date_time = now.strftime("%Y%m%d_%H-%M")
             date = now.strftime("%c")
             
             data_dir = self.defaults['dataDir']
-            subject = self.exp.subject
+            subject = 'ID' + str(self.exp.id_subject)
 
             self.out_files = []
             for ii in range(len(self.sensors)):
-                out_file = os.path.join( data_dir, date_time + '_' + \
-                        subject.split(',')[0] + '_' + str(ii) + '.dat' )
+                out_file = os.path.join( data_dir, 
+                        '_'.join([date_time,
+                                  subject,
+                                  self.paradigm,
+                                  str(ii)]) + '.dat' )
 
                 self.statusBar().showMessage( 'Recording ' + out_file )
                 
                 try:
                     fh_out = open(out_file, 'wb')
                 except:
-                    print(f'Could not open {out_file}. Please check if the default directory in SETTINGS.YAML is correct!')
+                    print(f'Could not open {out_file}.')
                     exit()
                     
                 # Write a header
-                fh_out.write(f'Subject: {self.exp.subject}\n'.encode())
+                fh_out.write(f'Subject: {self.exp.id_subject}\n'.encode())
                 fh_out.write(f'Experimentor: {self.exp.experimentor}\n'.encode())
                 fh_out.write(f'Date: {date}\n'.encode())
+                fh_out.write(f'Paradigm: {self.paradigm}\n'.encode())
                 #fh_out.write(f'Sample rate: '.encode())
                 
                 fh_out.write(b'Time (s),'+\
@@ -291,7 +350,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 
         else:
             self.logging = False
-            self.logButton.setText( self.lang_dict['Start_Log'] )
+            self.logButton.setText( self.lang_dict['StartLog'] )
             self.logButton.setStyleSheet('background-color: ')
             self.statusBar().showMessage( self.lang_dict['Status'] )
             
@@ -300,18 +359,30 @@ class MainWindow(QtWidgets.QMainWindow):
                     np.savetxt(out_file['fh'], sensor.store_data[:sensor.store_ptr,:], delimiter=',')
                 out_file['fh'].close()
                 print(f"Recorded data written to: {out_file['name']} ")
+                
+            comments = Comments(title='Comments to the current recordings:')    
+            comments.edit()
+            
+            self.db_entry(comments.quality, comments.text)
 
+                
+    def change_paradigm(self, i):
+        """ Choose the experimental paradigm """
+        
+        self.paradigm = self.df_paradigms.abbreviation[i]
+        self.id_paradigm = self.df_paradigms.id[i]
 
+        
     def change_source(self, i):
         """ Choose what data to display """
         
-        selected = self.comboBox.itemText(i)
+        selected = self.accGyr_Box.itemText(i)
         if i == 0:
             self.exp.sensorType = 'acc'
-            new_val = self.defaults['accLim']
+            new_val = float(self.defaults['accLim'])
         elif i == 1:
             self.exp.sensorType = 'gyr'
-            new_val = self.defaults['gyrLim']
+            new_val = float(self.defaults['gyrLim'])
         else:
             print('No sensor selected...')
             
@@ -330,7 +401,7 @@ class MainWindow(QtWidgets.QMainWindow):
             new_data = sensor.get_data('dat_quat')
 
             # If the sensor times out, take the last received datapoint
-            if not new_data:
+            if new_data is None:
                 print('still running!')
                 new_data = sensor.show_data[:,-1]
                 dummy_data = True
@@ -487,16 +558,54 @@ class MainWindow(QtWidgets.QMainWindow):
         self.upper_thresh = thresholds[1]     
             
        
-    def change_lang_to_de(self):
-        """Change to German menu"""
-        shutil.copy('lang_de.yaml', 'lang.yaml')
-        self.close()
+    def set_language(self, language=None):
+        """Set the language of the GUI
 
+        Parameters
+        ----------
+        language : string
+                If 'language'==None , the default language is set
 
-    def change_lang_to_eng(self):
-        """Change to an English menu"""
-        shutil.copy('lang_en.yaml', 'lang.yaml')
-        self.close()
+        Returns
+        -------
+        None
+        """
+
+        # Get the currently set language
+        if language is None:
+            language = self.language
+
+        # Get the language entries from the database
+        lang_dicts = db.query_TableView('Jansenberger.db','Language').\
+                drop(['id'], axis=1).set_index('token').to_dict()
+        
+        if language == '0':       # english
+            lang_dict = lang_dicts['english']
+        elif language == '1':     # german
+            lang_dict = lang_dicts['german']
+        else:
+            raise ValueError(f'Sorry, currently I only know English and German. You chose {language}')
+        
+        # Set the GUI-elements
+        self.exitButton.setText( lang_dict['Exit'] )
+        self.logButton.setText( lang_dict['StartLog'] )
+        
+        self.action2dChannels.setText( lang_dict['2dChannels'] )
+        self.actionChangeDefaults.setText( lang_dict['ChangeDefaults'] )
+        self.actionExerciseView.setText( lang_dict['ExerciseView'] )
+        self.actionExThresholds.setText (lang_dict['ExThresholds'])
+        self.actionLimits.setText( lang_dict['Limits'] )
+        self.actionTimeView.setText( lang_dict['TimeView'] )
+        self.actionThresholds.setText (lang_dict['Thresholds'])
+        self.actionXyView.setText( lang_dict['XyView'] )
+        
+        self.menuModes.setTitle( lang_dict['Modes'] )
+        self.menuView.setTitle( lang_dict['View'] )
+        self.menuHelp.setTitle( lang_dict['Help'] )
+        self.menuSettings.setTitle( lang_dict['Settings'] )
+        self.menuLanguage.setTitle( lang_dict['Language'] )
+        
+        self.lang_dict = lang_dict      # for later use
 
 
     def show_timeView(self):
@@ -767,20 +876,14 @@ class EnterText(QtWidgets.QDialog):
 def get_subjects():
     """ Initial setup, who does the recording and who is the subject"""
     
-    subject_file = 'subjects.txt'
-    experimentor_file = 'experimentors.txt'
+    db_file = 'Jansenberger.db'
+    subj =  db.query_TableView(db_file,'Subjects')
+    subj['full_name'] = subj.first_name + ' ' + subj.last_name
     
-    with open(subject_file, 'r') as fh:
-        subjects = fh.readlines()
-    for ii in range(len(subjects)):
-        subjects[ii] = subjects[ii][:-1]
+    exp =  db.query_TableView(db_file,'Experimentors')
+    exp['full_name'] = exp.first_name + ' ' + exp.last_name
     
-    with open(experimentor_file, 'r') as fh:
-        experimentors = fh.readlines()
-    for ii in range(len(experimentors)):
-        experimentors[ii] = experimentors[ii][:-1]
-    
-    return (subjects, experimentors)
+    return (subj.full_name.tolist(), exp.full_name.tolist())
 
     
 class Experiment():
@@ -791,12 +894,20 @@ class Experiment():
         self.save_data = 100    # to save in blocks
         self.show_nr = 0        # which sensor to
         self.sensorType = 'acc'    # which channel to display 
+        
+        db_file = 'Jansenberger.db'
 
         # Select the subject and the experimentor
         p = Subjects()      # "p" for "persons"
         p.edit()
-        self.subject = p.sub_list[p.sub_nr]
+        
+        subjects =  db.query_TableView(db_file, 'Subjects')
+        experimentors =  db.query_TableView(db_file, 'Experimentors')
+        
+        self.id_subject = subjects.iloc[p.sub_nr].id
+        self.subject_name = subjects.iloc[p.sub_nr].last_name
         self.experimentor = p.exp_list[p.exp_nr]
+        self.id_experimentor = experimentors.iloc[p.exp_nr].id
 
         
 class Subjects(dt.DataSet):
@@ -807,7 +918,16 @@ class Subjects(dt.DataSet):
     exp_nr = di.ChoiceItem("Experimentors", exp_list)
     sub_nr = di.ChoiceItem("Subjects", sub_list)
     
+    
+class Comments(dt.DataSet):
+    """Enter comments before storing a recording"""
+    
+    sel_list = ["very good", "middle", "bad"]
+    quality = di.ChoiceItem("Processing algorithm", sel_list, default=1 )
 
+    text = di.TextItem("Text")
+
+    
 def main():
     """ Main Program """
 
@@ -832,11 +952,13 @@ def main():
 
     # Establish the UDP connection
     # Currently the numbers are taken from the "settings.yaml"-file. This has yet to be automated, so that we can select the sensor!
-    with open('settings.yaml', 'r') as fh:
-        defaults = yaml.load(fh, Loader=yaml.FullLoader)
-    ports = [defaults['sensor0']]
-    if defaults['sensor1'] != 0:
-        ports.append(defaults['sensor1'])
+    db_file = 'Jansenberger.db'
+    defaults = db.query_TableView(db_file,'Settings').\
+            drop('id', axis=1).set_index('variable').value.to_dict()
+    
+    ports = [int(defaults['sensor0'])]
+    if defaults['sensor1'] != '0':
+        ports.append(int(defaults['sensor1']))
         
     sensors = []
 
@@ -852,8 +974,7 @@ def main():
 
             sensors.append(sensor)
 
-                    
-    tv_win = MainWindow(sensors=sensors, experiment=experiment)
+    tv_win = MainWindow(sensors=sensors, experiment=experiment, db_file=db_file)
     tv_win.show()
 
     sys.exit(app.exec_())

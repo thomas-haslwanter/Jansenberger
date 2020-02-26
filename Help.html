@@ -16,33 +16,36 @@
         <li>Run "setup.bat" to ensure that the required environmental variables
           are set.</li>
       </ul>
+      <li>Install <a href="https://sqlitebrowser.org/" title="DB Browser for SQLite">
+        DB Browser for SQLite</a>, in order to inspect and modify the database.</li>
     </ul>
     <h2>Use</h2>
     <p>Use "Settings|Defaults" to adjust the default settings.</p>
     <h3>Contents</h3>
     <dl>
-      <dt>defaults.py</dt>
-      <dd>Program that sets the default values; produces the text-file
-        "settings.yaml"</dd>
-      <dt> <a href="Jansenberger.html" title="Help-file">Jansenberger.html</a></dt>
+      <dt> <a href="Help.html" title="Help-file">Help.html</a></dt>
       <dd>Help-file</dd>
       <dt>Jansenberger.py</dt>
       <dd>Main file</dd>
       <dt>Jansenberger.ui</dt>
       <dd>File defining the user interface. It can be modified with "Qt Creator"
         or "Qt Designer", and is used in by "Jansenberger.py"</dd>
-      <dt>lang_de.yaml</dt>
-      <dd>German labels; are copied to "lang.yaml" when the language settings
-        change.</dd>
-      <dt>lang_en.yaml</dt>
-      <dd>English labels; are copied to "lang.yaml" when the language settings
-        change.</dd>
       <dt>ngimu.py</dt>
       <dd>Handles the interface to the <a href="https://x-io.co.uk/ngimu/" title="NGIMU">XIO-NGIMU-sensor</a></dd>
-      <dt>settings.yaml</dt>
-      <dd>Contains </dd>
-      <dt><br>
-      </dt>
+      <dt>db_interaction.py</dt>
+      <dd>Python code for the interaction with the database</dd>
+      <dt>jansenberger.db</dt>
+      <dd>squlite database, storing all important informations:
+        <ul>
+          <li>List of Experimentors</li>
+          <li>List of Subjects</li>
+          <li>German and English settings for the GUI</li>
+          <li>A list of paradigms</li>
+          <li>Information about each recording</li>
+          <li>Default settings</li>
+          <li>squlite View to conveniently show all experimental data</li>
+        </ul>
+      </dd>
     </dl>
     <hr style="color: white;">© Copyright Thomas Haslwanter, 2020<br>
     <p><br>
