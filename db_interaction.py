@@ -33,7 +33,7 @@ def generate(db_name):
         Subjects: id / first_name / last_name / dob / sv_nr / faller / comments
         Experimentor: id / first_name / last_name / comments
         Paradigms: id / abbreviation / description 
-        Recordings: id / id_subject / id_experimentor / id_paradigm / date_time / filename / comments
+        Recordings: id / id_subject / id_experimentor / id_paradigm / date_time / filename / comments / quality / num_sensors
         
     """
     # Create the database
@@ -246,9 +246,9 @@ def create_view(db_name):
     view_sql = """
         CREATE VIEW v_exercises
         AS
-        SELECT Subjects.first_name, Subjects.last_name, abbreviation,
+        SELECT Subjects.first_name, Subjects.last_name, Subjects.id, abbreviation,
             date_time, filename, Experimentors.first_name,
-            Experimentors.last_name, Recordings.comments
+            Experimentors.last_name, Recordings.comments, quality, num_sensors
         FROM Recordings
         INNER JOIN Subjects
         ON Subjects.id = Recordings.id_subject
