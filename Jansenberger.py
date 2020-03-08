@@ -5,10 +5,14 @@ Notes
 -----
 All information is stored in the database Jansenberger.db
 
+Todo
+----
+Get the sample-rate from the sensor!
+
 """
 
 #   author: Thomas Haslwanter
-#   date:   Feb-2020
+#   date:   March-2020
 
 # Import the required standard Python packages, ...
 import numpy as np
@@ -20,6 +24,7 @@ import os
 import pandas as pd
 import sqlite3
 import db_interaction as db
+import winsound
 
 
 # ..., the Qt-packages, ...
@@ -31,17 +36,45 @@ import pyqtgraph as pg
 import guidata
 import guidata.dataset.datatypes as dt
 import guidata.dataset.dataitems as di
+from guidata.dataset.qtwidgets import DataSetEditGroupBox
+from guidata.configtools import get_icon
 #_app = guidata.qapplication() # not required if a QApplication has already been created
 
 # ... and the module for the interface with the NGIMU
-import ngimu
+#import ngimu
 
 # For program development, I want to be able to work without sensors
-# import no_sensor as ngimu
+import no_sensor as ngimu
+
+tick = QtGui.QImage('tick.png')
 
 # All external information is in a single sqlite-database
 db_file = 'Jansenberger.db'
 
+
+def make_beep():
+    """Make a short beeping sound"""
+    
+    sound_file = r'Resources\ding2.wav'
+    winsound.PlaySound(sound_file, winsound.SND_ALIAS)
+    
+    # Alternatively:
+    # winsound.Beep(2000, 10)
+
+    
+class Exercise_Parameters(dt.DataSet):
+    """Interactive setting of the experimental parameters.
+    For the experiment-counter"""
+    
+    threshold_exercise = di.FloatItem("Threshold Exercise", default = 1.0)
+    threshold_points = di.FloatItem("Threshold Points", default = 1.4)
+    hold_time = di.FloatItem("Movement Time", default = 1.1, min = 0.1, max = 5)
+    repetitions = di.IntItem("Repetitions", default=5, min=2, max=50)
+    
+    direction = di.ChoiceItem("Axis", ['x', 'y', 'z'])
+    use_absVal = di.BoolItem("yes", 'Absolute Value')
+    use_inversion = di.BoolItem("yes", 'Invert Signal')
+    
 
 class DefaultParameters(dt.DataSet):
     """ Settings Instructions 'comment':
@@ -87,8 +120,140 @@ class DefaultParameters(dt.DataSet):
     language = di.ChoiceItem("Language", language_list,
                              default=int(defaults['language']), radio=True)
     
+    
+class Exercise():
+    """For counting the correct executions of exercises"""
+    
+    def __init__(self, exercise_counter, rate):
+        self.counts = 0                 # Number of correct exercises
+        self.hold_cnt = 0               # For restricting the duration of one trial
+        self.counting = False           # Countdown with "hold_cnt", starting at
+                                        # lower threshold
+        self.threshold_reached = False  # Correct execution of trial, at upper threshold
+        self.max_val_start = 0          # I might want to modify that when
+                                        # "Apply" is pushed
+        self.max_val = self.max_val_start
+        
+        # From the GUI
+        ds = exercise_counter.groupbox.dataset
+        self.thresholds = np.r_[ds.threshold_exercise,
+                                ds.threshold_points]
+        self.hold_cnt_max = int(ds.hold_time * rate)
+        
+        self.repetitions = ds.repetitions
+        self.axis = ds.direction
+        self.use_absVal = ds.use_absVal
+        self.use_inversion = ds.use_inversion
+        
+        
+    def update(self, new_values):
+        """Take new data value, and check if any of the conditions is fulfilled"""
+        
+        value = new_values[self.axis]
+        if self.use_absVal:
+            value = np.abs(value)
+        elif self.use_inversion:
+            value *= -1
+            
+        if not self.counting:
+            if value > self.thresholds[0]:
+                self.counting = True
+        else:
+            self.hold_cnt += 1
+            if self.hold_cnt < self.hold_cnt_max:
+                if value > self.max_val:
+                    self.max_val = value
+                if (not self.threshold_reached) and (value > self.thresholds[1]):
+                    self.counts += 1
+                    make_beep()
+                    self.threshold_reached = True
+            else:
+                self.max_val = self.max_val_start
+                self.hold_cnt = 0
+                self.counting = False
+                threshold_reached = False
+        
+        
+class ExerciseCount_Model(QtCore.QAbstractListModel):
+    """Qt-Model for the list of performed experiments"""
+    
+    def __init__(self, *args, todos=None, **kwargs):
+        super(ExerciseCount_Model, self).__init__(*args, **kwargs)
+        self.todos = todos or []
+        
+        
+    def data(self, index, role):
+        """Required function for a Qt-model"""
+        
+        if role == Qt.DisplayRole:
+            _, text = self.todos[index.row()]
+            return text
+        
+        if role == Qt.DecorationRole:
+            status, _ = self.todos[index.row()]
+            if status:
+                return tick
+
+    def rowCount(self, index):
+        """Required function for a Qt-model"""
+        
+        return len(self.todos)
 
     
+class ExerciseCount_Widget(QtWidgets.QWidget):
+    """Qt-Window for the display"""
+    
+    def __init__(self):
+        super().__init__()
+        
+        #super(ExerciseCount_Widget, self).__init__()
+        layout = QtWidgets.QVBoxLayout()
+        
+        # Instantiate dataset-related widgets:
+        self.groupbox = DataSetEditGroupBox("Parameters",
+                                             Exercise_Parameters, comment='')
+        self.groupbox.SIG_APPLY_BUTTON_CLICKED.connect( self.clear )
+        self.groupbox.get()
+        
+        layout.addWidget(self.groupbox)
+        self.exerciseView = QtGui.QListView()
+        layout.addWidget(self.exerciseView)
+        self.setLayout(layout)
+        
+        self.model = ExerciseCount_Model()
+        self.exerciseView.setModel(self.model)
+        
+        
+    def add(self, text):
+        """ Add an item to our todo list, getting the text from the input """
+        
+        # Access the list via the model.
+        self.model.todos.append((False, text))
+        # Trigger refresh.        
+        self.model.layoutChanged.emit()
+            
+        
+    def complete(self, row):
+        #row = index.row()
+        status, text = self.model.todos[row]
+        self.model.todos[row] = (True, text)
+        # .dataChanged takes top-left and bottom right, which are equal 
+        # for a single selection.
+        #self.model.dataChanged.emit(index, index)
+        # Clear the selection (as it is no longer valid).
+        
+        
+    def clear(self):
+        self.model.todos = []
+        self.model.layoutChanged.emit()
+        
+            
+    def update_window(self):
+        dataset = self.groupbox.dataset
+        print(dataset.threshold)
+        print(dataset.use_inversion)
+
+
 class MainWindow(QtWidgets.QMainWindow):
     """Class for the Time-View and the xy-View"""
 
@@ -133,14 +298,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Load the default settings
         self.defaults = db.query_TableView(db_file, 'Settings').\
             drop(['id'], axis=1).set_index('variable').value.to_dict()
-        #with open('settings.yaml', 'r') as fh:
-            #self.defaults = yaml.load(fh, Loader=yaml.FullLoader)
+        
+        # For the moment, hard-code the sampling rate [xxx]
+        self.rate = 50
         
         # Make sure the default data-dir exists
         if not os.path.exists(self.defaults['dataDir']):
             self.change_defaults()
-            with open('settings.yaml', 'r') as fh:
-                self.defaults = yaml.load(fh, Loader=yaml.FullLoader)
+            self.defaults = db.query_TableView(db_file, 'Settings').\
+                drop(['id'], axis=1).set_index('variable').value.to_dict()
 
         self.lower_thresh = float(self.defaults['lowerThresh'])
         self.upper_thresh = float(self.defaults['upperThresh'])
@@ -185,9 +351,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actionExThresholds.setEnabled(False)
         self.setWindowTitle('Subject: ' + self.exp.subject_name)
         
-        # Create the TrafficLight
-        self.light = ExerciseLight(mainWin=self)
-        self.stackedWidget.addWidget( self.light )
+        # Create the Exericse-View, with traffic light & parameters
+        self.light = Exercise_Light(mainWin=self)
+        # self.stackedWidget.addWidget( self.light )
+
+        self.dual_view = QtWidgets.QWidget()
+        layout_H = QtWidgets.QHBoxLayout(self.dual_view)
+        layout_H.addWidget(self.light)
+        self.exercise_counter = ExerciseCount_Widget()
+        self.exercise = Exercise(self.exercise_counter, self.rate)
+        layout_H.addWidget(self.exercise_counter)
+        
+        self.stackedWidget.addWidget( self.dual_view )
+
         self.signal.connect( self.light._trigger_refresh )
         
         self.stackedWidget.setCurrentIndex(0)
@@ -264,11 +440,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 if not out_file['fh'].closed:
                     if sensor.store_ptr > 0:
                         print(sensor.store_ptr)
-                        np.savetxt(out_file['name'], sensor.store_data[:sensor.store_ptr,:], delimiter=',')
+                        np.savetxt(out_file['name'],
+                                   sensor.store_data[:sensor.store_ptr,:],
+                                   delimiter=',')
                     out_file['fh'].close()
                     print(f"Recorded data written to: {out_file['name']}")
                     
-                    comments = Comments(title='Comments to the current recordings:')    
+                    comments = Comments(
+                            title='Comments to the current recordings:' )    
                     comments.edit()
                     
                     self.db_entry(comments.quality, comments.text)
@@ -478,8 +657,12 @@ class MainWindow(QtWidgets.QMainWindow):
                         [sensor.show_data[self.channel_nrs[0]][-1]],
                         [sensor.show_data[self.channel_nrs[1]][-1]])
 
-                if self.view == 'trafficlightView':
+                if self.view == 'exerciseView':
                     self.signal.emit()
+                    if self.exp.sensorType == 'acc':
+                        self.exercise.update(new_data[4:7])
+                    elif self.exp.sensorType == 'gyr':
+                        self.exercise.update(new_data[1:4])
 
             
     def set_sensor(self):
@@ -534,13 +717,16 @@ class MainWindow(QtWidgets.QMainWindow):
         
         valid = 'xyz'
         default_txt = 'x'
-        dlg = EnterText(title='Select channel(s) to display (e.g. "x"), or "3" for all channels:', default=default_txt)
+        dlg = EnterText(title='Select channel(s) to display (e.g. "x"), " + \
+                            "or "3" for all channels:', default=default_txt)
         if dlg.exec_():
             singles = dlg.valueEdit.text()
             #if len(singles) != len(self.sensors):
-                #raise ValueError(f'Number of selected channels must equal number of sensors {len(sensors)}!')
+                #raise ValueError(f'Number of selected channels must equal'+\
+                #        'number of sensors {len(sensors)}!')
                 #return
-            if len(singles) != 1:   # For inputs with more than one letter, revert to "show all"
+            # For inputs with more than one letter, revert to "show all"
+            if len(singles) != 1:
                 for ii in range(3):
                     self.exp.curves[ii].setVisible(True)
             else:    
@@ -563,13 +749,15 @@ class MainWindow(QtWidgets.QMainWindow):
         old_channels = self.channel_nrs
         valid = 'xyz'
         default_txt = valid[old_channels[0]] + ':' + valid[old_channels[1]]
-        dlg = EnterText(title='Select Coordinates (e.g. "x:z"):', default=default_txt)
+        dlg = EnterText(title='Select Coordinates (e.g. "x:z"):',
+                        default=default_txt)
         if dlg.exec_():
             channels = dlg.valueEdit.text().split(':')
             channel_nrs = []
             for channel in channels:
                 if channel.lower() not in valid:
-                    raise ValueError('Coordinate selector has to have the form "x:z", and valid values are only "xyz"!')
+                    raise ValueError('Coordinate selector has to have the '+\
+                            'form "x:z", and valid values are only "xyz"!')
                 else: 
                     channel_nrs.append('xyz'.find(channel.lower()))
             
@@ -620,7 +808,8 @@ class MainWindow(QtWidgets.QMainWindow):
         elif language == '1':     # german
             lang_dict = lang_dicts['german']
         else:
-            raise ValueError(f'Sorry, currently I only know English and German. You chose {language}')
+            raise ValueError(f'Sorry, currently I only know English and German.'+\
+                    ' You chose {language}')
         
         # Set the GUI-elements
         self.exitButton.setText( lang_dict['Exit'] )
@@ -720,7 +909,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     threshold.setVisible(True)
             
         
-        dlg = EnterText(title='Threshold-value, or "none" for no display:', default=np.round(self.thresholds, decimals=1))
+        dlg = EnterText(title='Threshold-value, or "none" for no display:',
+                        default=np.round(self.thresholds, decimals=1))
         if dlg.exec_():
             try:
                 new_val = np.float(dlg.valueEdit.text())
@@ -747,7 +937,8 @@ class MainWindow(QtWidgets.QMainWindow):
         
             
     def show_xyView(self):
-        """Shows one signal as a traffic light, with two independent thresholds"""
+        """Shows time-data in a 2D-view, with a trail indicating the recent
+        data history."""
         
         self.stackedWidget.setCurrentIndex(0)
         self.view = 'xyView'
@@ -762,7 +953,8 @@ class MainWindow(QtWidgets.QMainWindow):
         sensor = self.sensors[self.exp.show_nr]
         self.exp.curves[0].setData(sensor.show_data[0], sensor.show_data[1])
         self.exp.curves[3].setData(sensor.show_data[0], sensor.show_data[1])
-        #self.exp.curves[3].setData([sensor.show_data[0][0]], [sensor.show_data[1][0]])
+        #self.exp.curves[3].setData([sensor.show_data[0][0]],
+        #                           [sensor.show_data[1][0]])
         new_val = float(ph.getAxis('left').range[0])
         print(new_val)
         
@@ -784,18 +976,23 @@ class MainWindow(QtWidgets.QMainWindow):
             self.threshold_handles.setVisible(False)
             self.threshold_handles = None
             
+            
     def show_exerciseView(self):
         """Shows one signal as a traffic light, with two independent thresholds"""
         
-        self.view = 'trafficlightView'
+        self.view = 'exerciseView'
         self.stackedWidget.setCurrentIndex(1)
         
         self.action2dChannels.setEnabled(False)
         self.actionLimits.setEnabled(False)
         self.actionExThresholds.setEnabled(True)
+        
+        #self.ec.add('this is funny')
+        #self.ec.add('this is NOT funny')
+        #self.ec.complete(1)
             
                     
-class ExerciseLight(QtWidgets.QWidget):
+class Exercise_Light(QtWidgets.QWidget):
     """Paint a Traffic-light like signal"""
 
     def __init__(self, mainWin, *args, **kwargs):
@@ -816,6 +1013,11 @@ class ExerciseLight(QtWidgets.QWidget):
 
      
     def paintEvent(self, e):
+        """ Every re-draw of a widget is triggered throua a 'paintEvent',
+        e.g. when 'update()' is called
+
+        """
+
         painter = QtGui.QPainter(self)
         
         padding = 5
@@ -881,8 +1083,11 @@ class ExerciseLight(QtWidgets.QWidget):
             
         painter.end()
         
+
     def _trigger_refresh(self):
-         self.update()
+        """Triggers a re-painting of the Exercise-View"""
+
+        self.update()
 
 
 class EnterText(QtWidgets.QDialog):
@@ -976,7 +1181,7 @@ def main():
     app.processEvents()
 
     # Simulate something that takes time
-    time.sleep(2)
+    #time.sleep(2)
     QTimer.singleShot(500, splash.close)
     
     # Define the experiment, subjects and parameters
@@ -984,7 +1189,8 @@ def main():
     experiment = Experiment()
 
     # Establish the UDP connection
-    # Currently the numbers are taken from the "settings.yaml"-file. This has yet to be automated, so that we can select the sensor!
+    # Currently the numbers are taken from the "settings.yaml"-file.
+    # This has yet to be automated, so that we can select the sensor!
     defaults = db.query_TableView(db_file,'Settings').\
             drop('id', axis=1).set_index('variable').value.to_dict()
     
