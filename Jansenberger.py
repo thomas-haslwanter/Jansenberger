@@ -41,10 +41,10 @@ from guidata.configtools import get_icon
 #_app = guidata.qapplication() # not required if a QApplication has already been created
 
 # ... and the module for the interface with the NGIMU
-#import ngimu
+import ngimu
 
 # For program development, I want to be able to work without sensors
-import no_sensor as ngimu
+#import no_sensor as ngimu
 
 tick = QtGui.QImage('tick.png')
 
@@ -124,7 +124,8 @@ class DefaultParameters(dt.DataSet):
 class Exercise():
     """For counting the correct executions of exercises"""
     
-    def __init__(self, exercise_counter, rate):
+    def __init__(self, mainWin, exercise_counter, rate):
+        
         self.counts = 0                 # Number of correct exercises
         self.hold_cnt = 0               # For restricting the duration of one trial
         self.counting = False           # Countdown with "hold_cnt", starting at
@@ -133,12 +134,25 @@ class Exercise():
         self.max_val_start = 0          # I might want to modify that when
                                         # "Apply" is pushed
         self.max_val = self.max_val_start
+        self.exercise_running = False   # Only when the "Apply"-button is pushed
         
         # From the GUI
-        ds = exercise_counter.groupbox.dataset
+        self.rate = rate
+        self.exercise_counter = exercise_counter
+        self.get_GUI_values()
+        
+        # Connection to Exercise_Counter, to be able to trigger the counting
+        self.mainWin = mainWin
+        self.mainWin.exercise_counter.exercise_parameters.SIG_APPLY_BUTTON_CLICKED.connect(self.start_exercise)
+        
+        
+    def get_GUI_values(self):
+        """Update the parameters from the GUI for the next exercise"""
+        
+        ds = self.exercise_counter.exercise_parameters.dataset
         self.thresholds = np.r_[ds.threshold_exercise,
                                 ds.threshold_points]
-        self.hold_cnt_max = int(ds.hold_time * rate)
+        self.hold_cnt_max = int(ds.hold_time * self.rate)
         
         self.repetitions = ds.repetitions
         self.axis = ds.direction
@@ -155,23 +169,48 @@ class Exercise():
         elif self.use_inversion:
             value *= -1
             
+        #print(value)
         if not self.counting:
             if value > self.thresholds[0]:
                 self.counting = True
+                self.counts += 1
         else:
             self.hold_cnt += 1
             if self.hold_cnt < self.hold_cnt_max:
                 if value > self.max_val:
                     self.max_val = value
                 if (not self.threshold_reached) and (value > self.thresholds[1]):
-                    self.counts += 1
                     make_beep()
                     self.threshold_reached = True
             else:
+                achieved = int(100*self.max_val/self.thresholds[1]) 
+                self.exercise_counter.add(f'{achieved}%')
+                if achieved > 100:
+                    self.exercise_counter.tick(-1)
                 self.max_val = self.max_val_start
                 self.hold_cnt = 0
                 self.counting = False
-                threshold_reached = False
+                self.threshold_reached = False
+                if self.counts == self.repetitions:
+                    self.exercise_counter.add('--------  Done!  --------')
+                    self.counts = 0
+                    self.exercise_running = False
+                
+                
+    def start_exercise(self):
+        """Start the exercise counter"""
+        
+        self.get_GUI_values()
+        self.mainWin.lower_thresh = self.thresholds[0]
+        self.mainWin.upper_thresh = self.thresholds[1]
+        self.exercise_running = True
+                
+        
+    def stop_exercise(self):
+        """Start the exercise counter"""
+        
+        self.exercise_running = False
+        
         
         
 class ExerciseCount_Model(QtCore.QAbstractListModel):
@@ -200,8 +239,9 @@ class ExerciseCount_Model(QtCore.QAbstractListModel):
         return len(self.todos)
 
     
-class ExerciseCount_Widget(QtWidgets.QWidget):
-    """Qt-Window for the display"""
+class Exercise_Counter(QtWidgets.QWidget):
+    """Qt-Widget containing the Exercise_Parameters and
+    the Exercise_List"""
     
     def __init__(self):
         super().__init__()
@@ -210,18 +250,18 @@ class ExerciseCount_Widget(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout()
         
         # Instantiate dataset-related widgets:
-        self.groupbox = DataSetEditGroupBox("Parameters",
+        self.exercise_parameters = DataSetEditGroupBox("Parameters",
                                              Exercise_Parameters, comment='')
-        self.groupbox.SIG_APPLY_BUTTON_CLICKED.connect( self.clear )
-        self.groupbox.get()
+        self.exercise_parameters.SIG_APPLY_BUTTON_CLICKED.connect( self.clear )
+        self.exercise_parameters.get()
         
-        layout.addWidget(self.groupbox)
-        self.exerciseView = QtGui.QListView()
-        layout.addWidget(self.exerciseView)
+        layout.addWidget(self.exercise_parameters)
+        self.exercise_list = QtGui.QListView()
+        layout.addWidget(self.exercise_list)
         self.setLayout(layout)
         
         self.model = ExerciseCount_Model()
-        self.exerciseView.setModel(self.model)
+        self.exercise_list.setModel(self.model)
         
         
     def add(self, text):
@@ -233,7 +273,7 @@ class ExerciseCount_Widget(QtWidgets.QWidget):
         self.model.layoutChanged.emit()
             
         
-    def complete(self, row):
+    def tick(self, row):
         #row = index.row()
         status, text = self.model.todos[row]
         self.model.todos[row] = (True, text)
@@ -249,7 +289,7 @@ class ExerciseCount_Widget(QtWidgets.QWidget):
         
             
     def update_window(self):
-        dataset = self.groupbox.dataset
+        dataset = self.exercise_parameters.dataset
         print(dataset.threshold)
         print(dataset.use_inversion)
 
@@ -353,21 +393,15 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Create the Exericse-View, with traffic light & parameters
         self.light = Exercise_Light(mainWin=self)
-        # self.stackedWidget.addWidget( self.light )
-
         self.dual_view = QtWidgets.QWidget()
         layout_H = QtWidgets.QHBoxLayout(self.dual_view)
         layout_H.addWidget(self.light)
-        self.exercise_counter = ExerciseCount_Widget()
-        self.exercise = Exercise(self.exercise_counter, self.rate)
+        self.exercise_counter = Exercise_Counter()
+        self.exercise = Exercise(self, self.exercise_counter, self.rate)
         layout_H.addWidget(self.exercise_counter)
-        
         self.stackedWidget.addWidget( self.dual_view )
-
-        self.signal.connect( self.light._trigger_refresh )
-        
         self.stackedWidget.setCurrentIndex(0)
-
+        self.signal.connect( self.light._trigger_refresh )
         self.change_source(0)
         
         # Timer for updating the display
@@ -659,10 +693,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 if self.view == 'exerciseView':
                     self.signal.emit()
-                    if self.exp.sensorType == 'acc':
-                        self.exercise.update(new_data[4:7])
-                    elif self.exp.sensorType == 'gyr':
-                        self.exercise.update(new_data[1:4])
+                    if self.exercise.exercise_running:
+                        if self.exp.sensorType == 'acc':
+                            self.exercise.update(new_data[4:7])
+                        elif self.exp.sensorType == 'gyr':
+                            self.exercise.update(new_data[1:4])
 
             
     def set_sensor(self):
