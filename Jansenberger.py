@@ -41,12 +41,12 @@ from guidata.configtools import get_icon
 #_app = guidata.qapplication() # not required if a QApplication has already been created
 
 # ... and the module for the interface with the NGIMU
-import ngimu
+#import ngimu
 
 # For program development, I want to be able to work without sensors
-#import no_sensor as ngimu
+import no_sensor as ngimu
 
-tick = QtGui.QImage('tick.png')
+tick = QtGui.QImage(r'Resources\tick.png')
 
 # All external information is in a single sqlite-database
 db_file = 'Jansenberger.db'
