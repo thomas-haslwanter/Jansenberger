@@ -334,4 +334,4 @@ if __name__ == '__main__':
     xls_name = 'out.xlsx'
 
     df = export_view(db_name, xls_name)
-    print('Done')
+    print(f'The database has been exported to {xls_name}.')
