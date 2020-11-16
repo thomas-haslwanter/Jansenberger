@@ -1,0 +1,34 @@
+Language
+    ID
+    Token
+    English
+    German
+
+Settings
+    ID
+    variable
+    value
+
+Subjects
+    ID
+    First_Name
+    Last_Name
+    DOB
+    SV-Nr
+    Experimentor
+    Faller
+    Comments
+
+Paradigms
+    ID
+    Abbreviation
+    Description
+
+Experiments
+    ID
+    ID.Subjects
+    ID.Subjects.Experimentor
+    ID.Paradigm
+    Date
+    File_Name
+    Comments

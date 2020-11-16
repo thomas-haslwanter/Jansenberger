@@ -294,7 +294,7 @@ if __name__ == '__main__':
     print(sensor.address[1])    
     """
     
-    ports = [8015]
+    ports = [9000]  
     
     sensors = []
 

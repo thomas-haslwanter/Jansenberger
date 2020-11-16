@@ -3,6 +3,7 @@ bottomColor: '#00aa00'
 dataDir: D:\Users\thomas\Data\CloudStation\Projects\IMUs\Jansenberger\data
 gyrLim: 300.0
 initSensortype: 0
+language: 1
 lowerThresh: 0.3
 middleColor: '#ffaa00'
 openingView: 0

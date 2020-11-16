@@ -98,7 +98,11 @@ def generate(db_name):
         filename text NOT NULL,
         num_sensors integer NOT NULL,
         quality integer NOT NULL,
-        comments text )"""
+        comments text,
+        FOREIGN KEY (id_subject) REFERENCES Subjects (id),
+        FOREIGN KEY (id_experimentor) REFERENCES Experimentors (id),
+        FOREIGN KEY (id_paradigm) REFERENCES Paradigms (id)
+        )"""
     cur.execute(recordings_sql)
 
     conn.commit()
@@ -246,9 +250,12 @@ def create_view(db_name):
     view_sql = """
         CREATE VIEW v_exercises
         AS
-        SELECT Subjects.first_name, Subjects.last_name, Subjects.id, abbreviation,
-            date_time, filename, Experimentors.first_name,
-            Experimentors.last_name, Recordings.comments, quality, num_sensors
+        SELECT Subjects.first_name AS subject_FirstName,
+            Subjects.last_name as subject_LastName,
+            Subjects.id, abbreviation, date_time, filename,
+            Experimentors.first_name AS experimentor_FirstName,
+            Experimentors.last_name AS experimentor_LastName,
+            Recordings.comments, quality, num_sensors
         FROM Recordings
         INNER JOIN Subjects
         ON Subjects.id = Recordings.id_subject
@@ -312,7 +319,6 @@ def export_view(db_name, xls_name, view='v_exercises'):
 
 if __name__ == '__main__':
     
-    """
     # Set the parameters
     in_file = 'test_data.txt'
     db_name = 'test.db'
@@ -335,3 +341,4 @@ if __name__ == '__main__':
 
     df = export_view(db_name, xls_name)
     print(f'The database has been exported to {xls_name}.')
+    """
