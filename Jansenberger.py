@@ -12,7 +12,7 @@ Get the sample-rate from the sensor!
 """
 
 #   author: Thomas Haslwanter
-#   date:   March-2020
+#   date:   Aug-2021
 
 # Import the required standard Python packages, ...
 import numpy as np
@@ -41,10 +41,10 @@ from guidata.configtools import get_icon
 #_app = guidata.qapplication() # not required if a QApplication has already been created
 
 # ... and the module for the interface with the NGIMU
-import ngimu
+# import ngimu
 
 # For program development, I want to be able to work without sensors
-#import no_sensor as ngimu
+import no_sensor as ngimu
 
 tick = QtGui.QImage(r'Resources\tick.png')
 
@@ -1070,9 +1070,9 @@ class Exercise_Light(QtWidgets.QWidget):
         inner_padding = 5
         
         
-        diameter = ((height - 2*outer_padding) - 4*inner_padding)/3
-        box = (diameter + 4*inner_padding,  height - 2*outer_padding)
-        top_left = (middle - box[0]/2, outer_padding)
+        diameter = int(((height - 2*outer_padding) - 4*inner_padding)/3)
+        box = (int(diameter + 4*inner_padding),  int(height - 2*outer_padding))
+        top_left = (int(middle - box[0]/2), int(outer_padding))
         
         pen = QtGui.QPen()
         pen.setColor(QtGui.QColor('black'))

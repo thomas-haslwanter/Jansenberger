@@ -26,7 +26,7 @@ class Sensor():
     """Routines to interact with an NGIMU-sensor (from XIO technologies)"""
 
 
-    def __init__(self, port=8030, timeout=5, debug_flag=False):
+    def __init__(self, port=8001, timeout=5, debug_flag=False):
         """Tries to establish a connection with an NGIMU on the current WLAN.
         If successful it sets the NGIMU_address (IP_address, port). Otherwise,
         this address is set to (-1, -1)
@@ -294,7 +294,7 @@ if __name__ == '__main__':
     print(sensor.address[1])    
     """
     
-    ports = [9000]  
+    ports = [8045]  
     
     sensors = []
 
